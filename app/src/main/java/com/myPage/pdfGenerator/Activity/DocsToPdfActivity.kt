@@ -27,6 +27,7 @@ import com.myPage.pdfGenerator.databinding.ActivityDocsToPdfBinding
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
+import com.myPage.pdfGenerator.adapter.PdfMakingAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,7 +43,7 @@ class DocsToPdfActivity : AppCompatActivity() {
     private var selectedDocUri: Uri? = null
     private var pdfName: String = "converted"
 
-    private lateinit var recentPdfAdapter: RecentPdfAdapter
+    private lateinit var pdfMakingAdapter: PdfMakingAdapter
     private var pendingDownloadFile: File? = null
 
     private val pickDocLauncher =
@@ -77,14 +78,14 @@ class DocsToPdfActivity : AppCompatActivity() {
         }
         binding.toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
 
-        recentPdfAdapter = RecentPdfAdapter(
+        pdfMakingAdapter = PdfMakingAdapter(
             onOpen = { openPdf(it) },
             onShare = { sharePdf(it) },
             onDownload = { downloadPdfToDownloads(it) },
             onDelete = { deletePdf(it) }
         )
         binding.rvRecentPdfs.layoutManager = LinearLayoutManager(this)
-        binding.rvRecentPdfs.adapter = recentPdfAdapter
+        binding.rvRecentPdfs.adapter = pdfMakingAdapter
 
         loadRecentPdfs()
 
@@ -270,7 +271,7 @@ class DocsToPdfActivity : AppCompatActivity() {
             ?.toList()
             ?: emptyList()
 
-        recentPdfAdapter.submitList(list)
+        pdfMakingAdapter.submitList(list)
     }
 
     private fun openPdf(file: File) {

@@ -23,7 +23,7 @@
         android:id="@+id/tvTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="PDF Maker"
+        android:text="DocNest"
         android:textStyle="bold"
         android:textSize="18sp"
         android:textColor="@color/black"

@@ -1,69 +1,63 @@
 package com.myPage.pdfGenerator
 
-import android.content.Intent
 import android.os.Bundle
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.core.view.WindowCompat
+import androidx.fragment.app.Fragment
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.myPage.pdfGenerator.Activity.BaseActivity
-import com.myPage.pdfGenerator.Activity.DocsToPdfActivity
-import com.myPage.pdfGenerator.Activity.HomeActivity
-import com.myPage.pdfGenerator.Activity.PdfToDocsActivity
-import com.myPage.pdfGenerator.adapter.ToolsAdapter
+import com.myPage.pdfGenerator.fragment.HomeFragment
+import com.myPage.pdfGenerator.fragment.ProfileFragment
+import com.myPage.pdfGenerator.fragment.RecentFragment
 import com.myPage.pdfGenerator.databinding.ActivityMainBinding
-import com.myPage.pdfGenerator.model.ToolItem
 
 class MainActivity : BaseActivity() {
 
+    private lateinit var binding: ActivityMainBinding
 
-        private lateinit var binding: ActivityMainBinding
-        private lateinit var adapter: ToolsAdapter
+    companion object {
+        const val TOOL_PDF_TO_DOCS = 1
+        const val TOOL_DOCS_TO_PDF = 2
+        const val TOOL_IMG_TO_PDF = 3
+    }
 
-        companion object {
-            const val TOOL_PDF_TO_DOCS = 1
-            const val TOOL_DOCS_TO_PDF = 2
-            const val TOOL_IMG_TO_PDF = 3
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        val nav = binding.toolbar.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.ivNav)
+        nav.setOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
         }
 
-        override fun onCreate(savedInstanceState: Bundle?) {
-            super.onCreate(savedInstanceState)
-            binding = ActivityMainBinding.inflate(layoutInflater)
-
-            setContentView(binding.root)
-//            WindowCompat.setDecorFitsSystemWindows(window, true)
-//            window.statusBarColor = ContextCompat.getColor(this, R.color.btn_color)
-
-
-            val nav = binding.toolbar.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.ivNav)
-//            val title = binding.toolbar.findViewById<TextView>(R.id.tvTitle)
-//
-//            title.text = "PDF Maker"
-
-            nav.setOnClickListener {
-                onBackPressedDispatcher.onBackPressed()
-            }
-            adapter = ToolsAdapter { tool ->
-                when (tool.id) {
-                    TOOL_PDF_TO_DOCS -> {
-                        startActivity(Intent(this, PdfToDocsActivity::class.java))
-                    }
-                    TOOL_DOCS_TO_PDF -> {
-                         startActivity(Intent(this, DocsToPdfActivity::class.java))
-                    }
-                    TOOL_IMG_TO_PDF -> {
-                         startActivity(Intent(this, HomeActivity::class.java))
-                    }
+        val bottomNav = findViewById<BottomNavigationView>(R.id.bottomNav)
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    loadFragment(HomeFragment())
+                    true
                 }
+                R.id.nav_recent -> {
+                    loadFragment(RecentFragment())
+                    true
+                }
+                R.id.nav_profile -> {
+                    loadFragment(ProfileFragment())
+                    true
+                }
+                else -> false
             }
-
-            binding.rvTools.layoutManager = GridLayoutManager(this, 3)
-            binding.rvTools.adapter = adapter
-
-            adapter.submitList(
-                listOf(
-                    ToolItem(TOOL_IMG_TO_PDF, "IMG → PDF", R.drawable.image_to_pdf),
-                    ToolItem(TOOL_PDF_TO_DOCS, "PDF → DOCS", R.drawable.docs),
-                    ToolItem(TOOL_DOCS_TO_PDF, "DOCS → PDF", R.drawable.pdf_img),
-                )
-            )
         }
 
+        // Load default fragment
+        if (savedInstanceState == null) {
+            bottomNav.selectedItemId = R.id.nav_home
+        }
+    }
+
+    private fun loadFragment(fragment: Fragment) {
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragmentContainer, fragment)
+            .commit()
+    }
 }

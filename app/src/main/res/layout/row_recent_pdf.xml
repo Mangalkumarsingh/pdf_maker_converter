@@ -5,6 +5,16 @@
     android:padding="12dp"
     android:gravity="center_vertical">
 
+    <!-- Start में PDF का इमेज -->
+    <ImageView
+        android:id="@+id/ivPdfIcon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginEnd="12dp"
+        android:src="@drawable/image_pdf_img"
+        android:contentDescription="PDF Icon" />
+
+    <!-- टेक्स्ट वाला हिस्सा -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -40,6 +50,7 @@
 
     </LinearLayout>
 
+    <!-- More Options (Three Dot) -->
     <ImageView
         android:id="@+id/ivMore"
         android:layout_width="40dp"

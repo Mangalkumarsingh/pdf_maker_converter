@@ -11,7 +11,8 @@
         android:id="@+id/cardCircle"
         android:layout_width="84dp"
         android:layout_height="84dp"
-        app:cardCornerRadius="42dp"
+        app:cardCornerRadius="8dp"
+        app:cardBackgroundColor="@color/white"
         app:cardUseCompatPadding="true"
         app:strokeWidth="1dp">
 
@@ -20,7 +21,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:padding="8dp"
-
             android:src="@android:drawable/ic_menu_upload"/>
     </com.google.android.material.card.MaterialCardView>
 
