@@ -1,21 +1,59 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Preserve line numbers for stack traces
+-keepattributes SourceFile,LineNumberTable
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# -------------------------------------------------------------
+# Apache POI & XMLBeans
+# -------------------------------------------------------------
+-dontwarn org.apache.poi.**
+-dontwarn org.apache.xmlbeans.**
+-dontwarn com.microsoft.schemas.**
+-dontwarn org.openxmlformats.schemas.**
+-dontwarn org.etsi.uri.**
+-dontwarn org.w3c.dom.**
+-dontwarn java.awt.**
+-dontwarn javax.xml.stream.**
+-dontwarn net.sf.saxon.**
+-dontwarn org.apache.batik.**
+-dontwarn org.osgi.framework.**
+-dontwarn org.apache.logging.log4j.**
+-dontwarn org.apache.commons.codec.**
+-dontwarn org.apache.commons.compress.**
+-dontwarn org.apache.commons.math3.**
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keep class org.apache.poi.** { *; }
+-keep class org.apache.xmlbeans.** { *; }
+-keep interface org.apache.poi.** { *; }
+-keep interface org.apache.xmlbeans.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# -------------------------------------------------------------
+# PDFBox Android
+# -------------------------------------------------------------
+-dontwarn com.tom_roush.pdfbox.**
+-dontwarn org.bouncycastle.**
+-keep class com.tom_roush.pdfbox.** { *; }
+
+# -------------------------------------------------------------
+# ML Kit Text Recognition
+# -------------------------------------------------------------
+-keep class com.google.mlkit.** { *; }
+-dontwarn com.google.mlkit.**
+
+# -------------------------------------------------------------
+# Coil & uCrop
+# -------------------------------------------------------------
+-dontwarn coil.**
+-keep class com.yalantis.ucrop.** { *; }
+
+# -------------------------------------------------------------
+# View Binding
+# -------------------------------------------------------------
+-keepclassmembers class * implements androidx.viewbinding.ViewBinding {
+    public static * inflate(...);
+    public static * bind(...);
+}
+
+# -------------------------------------------------------------
+# Models
+# -------------------------------------------------------------
+-keep class com.myPage.pdfGenerator.model.** { *; }
