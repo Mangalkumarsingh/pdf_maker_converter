@@ -8,8 +8,7 @@ import coil.load
 import com.myPage.pdfGenerator.databinding.RowSelectedImageBinding
 
 class SelectedImagesDialogAdapter(
-    private val onEdit: (Uri, Int) -> Unit,
-    private val onDelete: (Int) -> Unit
+    private val onItemClick: ((Uri, Int) -> Unit)? = null
 ) : RecyclerView.Adapter<SelectedImagesDialogAdapter.VH>() {
 
     private val items = ArrayList<Uri>()
@@ -31,13 +30,16 @@ class SelectedImagesDialogAdapter(
         if (position in items.indices) {
             items.removeAt(position)
             notifyItemRemoved(position)
+            notifyItemRangeChanged(position, items.size - position)
         }
     }
+
     fun addItems(newItems: List<Uri>) {
         val start = items.size
         items.addAll(newItems)
         notifyItemRangeInserted(start, newItems.size)
     }
+
     fun currentList(): List<Uri> = items.toList()
 
     inner class VH(val b: RowSelectedImageBinding) : RecyclerView.ViewHolder(b.root)
@@ -51,10 +53,10 @@ class SelectedImagesDialogAdapter(
         val uri = items[position]
         holder.b.ivThumb.load(uri)
 
-        holder.b.btnEdit.setOnClickListener { onEdit(uri, holder.bindingAdapterPosition) }
-        holder.b.btnDelete.setOnClickListener { onDelete(holder.bindingAdapterPosition) }
+        holder.b.root.setOnClickListener {
+            onItemClick?.invoke(uri, holder.bindingAdapterPosition)
+        }
     }
 
     override fun getItemCount(): Int = items.size
 }
-

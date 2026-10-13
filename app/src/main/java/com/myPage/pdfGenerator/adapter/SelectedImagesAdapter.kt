@@ -37,11 +37,10 @@ class SelectedImagesAdapter(
         val uri = items[position]
         holder.binding.ivThumb.load(uri)
 
-        holder.binding.btnEdit.setOnClickListener {
+        holder.binding.root.setOnClickListener {
             onEditClick(uri, holder.bindingAdapterPosition)
         }
     }
 
     override fun getItemCount(): Int = items.size
 }
-

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -12,10 +13,12 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.PagerSnapHelper
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.myPage.pdfGenerator.R
 import com.myPage.pdfGenerator.adapter.SelectedImagesDialogAdapter
 import com.myPage.pdfGenerator.databinding.DialogSelectedImagesBinding
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.yalantis.ucrop.UCrop
 import java.io.File
 
@@ -32,14 +35,21 @@ class SelectedImagesDialogFragment : DialogFragment() {
     private var uris = arrayListOf<Uri>()
     private lateinit var binding: DialogSelectedImagesBinding
     private lateinit var adapter: SelectedImagesDialogAdapter
+    private val snapHelper = PagerSnapHelper()
+
     private val pickMoreMedia =
         registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(30)) { newUris ->
             if (newUris.isNotEmpty()) {
                 val filtered = newUris.filterNot { it in uris }
 
                 if (filtered.isNotEmpty()) {
+                    val start = uris.size
                     uris.addAll(filtered)
                     adapter.addItems(filtered)
+                    binding.rvImages.post {
+                        binding.rvImages.smoothScrollToPosition(start)
+                        updatePageIndicator()
+                    }
                 }
             }
         }
@@ -62,7 +72,6 @@ class SelectedImagesDialogFragment : DialogFragment() {
         listener = context as? Listener
     }
 
-
     override fun onDetach() {
         listener = null
         super.onDetach()
@@ -70,8 +79,21 @@ class SelectedImagesDialogFragment : DialogFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setStyle(STYLE_NORMAL, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-        uris = (arguments?.getParcelableArrayList(ARG_URIS) ?: arrayListOf())
+        setStyle(STYLE_NORMAL, R.style.FullScreenDialogTheme)
+        uris = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arguments?.getParcelableArrayList(ARG_URIS, Uri::class.java) ?: arrayListOf()
+        } else {
+            @Suppress("DEPRECATION")
+            arguments?.getParcelableArrayList(ARG_URIS) ?: arrayListOf()
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        dialog?.window?.setLayout(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
     }
 
     override fun onCreateView(
@@ -82,39 +104,109 @@ class SelectedImagesDialogFragment : DialogFragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        binding.toolbar.setNavigationOnClickListener { dismiss() }
+        super.onViewCreated(view, savedInstanceState)
 
-        adapter = SelectedImagesDialogAdapter(
-            onEdit = { uri, pos ->
-                editingIndex = pos
-                startUCrop(uri)
-            },
-            onDelete = { pos ->
-                if (pos in uris.indices) {
-                    uris.removeAt(pos)
-                    adapter.removeAt(pos)
-                    if (uris.isEmpty()) dismiss()
+        // Top Toolbar
+        binding.toolbar.setNavigationOnClickListener { dismiss() }
+        binding.btnDelete.setOnClickListener {
+            val pos = getCurrentPosition()
+            if (pos in uris.indices) {
+                uris.removeAt(pos)
+                adapter.removeAt(pos)
+                if (uris.isEmpty()) {
+                    dismiss()
+                } else {
+                    updatePageIndicator()
                 }
             }
-        )
+        }
 
-        binding.rvImages.layoutManager = LinearLayoutManager(requireContext())
+        // Horizontal RecyclerView setup with PagerSnapHelper
+        val layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+        binding.rvImages.layoutManager = layoutManager
+        snapHelper.attachToRecyclerView(binding.rvImages)
+
+        adapter = SelectedImagesDialogAdapter()
         binding.rvImages.adapter = adapter
         adapter.submitList(uris)
 
-        binding.btnAddMore.setOnClickListener {
+        binding.rvImages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                super.onScrollStateChanged(recyclerView, newState)
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    updatePageIndicator()
+                }
+            }
+
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                updatePageIndicator()
+            }
+        })
+
+        updatePageIndicator()
+
+        // 1. Cancel action
+        val cancelAction = View.OnClickListener { dismiss() }
+        binding.cardCancel.setOnClickListener(cancelAction)
+        binding.btnCancel.setOnClickListener(cancelAction)
+
+        // 2. Edit action (crops currently visible image)
+        val editAction = View.OnClickListener {
+            val pos = getCurrentPosition()
+            if (pos in uris.indices) {
+                editingIndex = pos
+                startUCrop(uris[pos])
+            }
+        }
+        binding.cardEdit.setOnClickListener(editAction)
+        binding.btnEdit.setOnClickListener(editAction)
+
+        // 3. Add More action
+        val addAction = View.OnClickListener {
             pickMoreMedia.launch(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
             )
         }
+        binding.cardAdd.setOnClickListener(addAction)
+        binding.btnAddMore.setOnClickListener(addAction)
 
-        binding.btnDone.setOnClickListener {
+        // 4. Done action
+        val doneAction = View.OnClickListener {
+            if (uris.isEmpty()) {
+                dismiss()
+                return@OnClickListener
+            }
             showRenameDialogCustom("MyPDF_${System.currentTimeMillis()}") { enteredName ->
                 listener?.onImagesFinalized(adapter.currentList(), enteredName)
                 dismiss()
             }
         }
+        binding.cardDone.setOnClickListener(doneAction)
+        binding.btnDone.setOnClickListener(doneAction)
+    }
 
+    private fun getCurrentPosition(): Int {
+        val layoutManager = binding.rvImages.layoutManager as? LinearLayoutManager ?: return 0
+        val snapView = snapHelper.findSnapView(layoutManager)
+        if (snapView != null) {
+            val pos = layoutManager.getPosition(snapView)
+            if (pos != RecyclerView.NO_POSITION) return pos
+        }
+        val firstVisible = layoutManager.findFirstCompletelyVisibleItemPosition()
+        if (firstVisible != RecyclerView.NO_POSITION) return firstVisible
+        val firstPos = layoutManager.findFirstVisibleItemPosition()
+        return if (firstPos != RecyclerView.NO_POSITION) firstPos else 0
+    }
+
+    private fun updatePageIndicator() {
+        val total = uris.size
+        if (total == 0) {
+            binding.tvPageIndicator.text = "0 of 0"
+            return
+        }
+        val current = (getCurrentPosition() + 1).coerceIn(1, total)
+        binding.tvPageIndicator.text = "$current of $total"
     }
 
     private fun showRenameDialogCustom(
@@ -152,7 +244,6 @@ class SelectedImagesDialogFragment : DialogFragment() {
         dialog.show()
     }
 
-
     private fun startUCrop(inputUri: Uri) {
         val destination = Uri.fromFile(
             File(requireContext().cacheDir, "crop_${System.currentTimeMillis()}.jpg")
@@ -171,13 +262,13 @@ class SelectedImagesDialogFragment : DialogFragment() {
 
         ucropLauncher.launch(intent)
     }
+
     companion object {
         private const val ARG_URIS = "arg_uris"
         fun newInstance(list: ArrayList<Uri>): SelectedImagesDialogFragment {
             return SelectedImagesDialogFragment().apply {
                 arguments = Bundle().apply {
                     putParcelableArrayList(ARG_URIS, list)
-
                 }
             }
         }

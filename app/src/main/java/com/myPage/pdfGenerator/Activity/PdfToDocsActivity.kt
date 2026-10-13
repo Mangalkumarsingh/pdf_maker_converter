@@ -94,6 +94,7 @@ class PdfToDocsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityPdfToDocsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val window = getWindow()
 

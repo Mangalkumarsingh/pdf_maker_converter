@@ -6,4 +6,13 @@
     <color name="select_color">#fde0d8</color>
     <color name="btn_color_docs">#0066cc</color>
     <color name="btn_color_pdf">#cc0002</color>
+    
+    <!-- Dialog Colors -->
+    <color name="dialog_bg">#121212</color>
+    <color name="dialog_bar_bg">#1E1E1E</color>
+    <color name="color_done">#2E7D32</color>
+    <color name="color_cancel">#D32F2F</color>
+    <color name="color_edit">#1976D2</color>
+    <color name="color_delete">#EF5350</color>
+    <color name="text_sub">#B0BEC5</color>
 </resources>

@@ -19,6 +19,7 @@
             android:contentDescription="Profile Picture"/>
 
         <TextView
+            android:id="@+id/tvUserName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -28,10 +29,11 @@
             android:textColor="@color/black"/>
 
         <TextView
+            android:id="@+id/tvSubscription"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="user@dummy.com"
+            android:text="Subscription: Free"
             android:textSize="16sp"
             android:textColor="#666666"/>
             
@@ -44,29 +46,86 @@
         android:layout_marginHorizontal="16dp"/>
 
     <LinearLayout
+        android:id="@+id/llPrivacyPolicy"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:orientation="horizontal"
+        android:background="?android:attr/selectableItemBackground"
+        android:clickable="true"
+
+        android:focusable="true"
+        android:padding="16dp"
+        >
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Privacy Policy"
-            android:textSize="18sp"
+            android:textSize="15dp"
             android:textStyle="bold"
+            android:layout_weight="1"
             android:textColor="@color/black"
             android:layout_marginBottom="8dp"/>
 
-        <TextView
-            android:id="@+id/tvPrivacyPolicy"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="We collect necessary information to provide PDF generation services. Your images and documents are processed locally on your device or safely via our servers according to industry standards. We do not sell your personal data."
-            android:textSize="14sp"
-            android:textColor="#444444"
-            android:lineSpacingExtra="4dp"/>
 
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:src="@drawable/right_arrow"/>
+
+    </LinearLayout>
+    <!-- Share App Layout -->
+    <LinearLayout
+        android:id="@+id/llShareApp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="?android:attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Share App"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="@color/black"/>
+
+        <ImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/right_arrow" /> <!-- अगर शेयर का आइकॉन है तो वो लगा लें -->
+    </LinearLayout>
+
+
+    <LinearLayout
+        android:id="@+id/llRateUs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="?android:attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Rate Us"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="@color/black"/>
+
+        <ImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/right_arrow" /> <!-- अगर स्टार(Star) का आइकॉन है तो वो लगा लें -->
     </LinearLayout>
 
 </LinearLayout>

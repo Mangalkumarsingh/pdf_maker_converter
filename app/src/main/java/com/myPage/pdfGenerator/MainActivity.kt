@@ -1,7 +1,10 @@
 package com.myPage.pdfGenerator
 
+import android.graphics.Color
 import android.os.Bundle
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.myPage.pdfGenerator.Activity.BaseActivity
@@ -24,6 +27,19 @@ class MainActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        window.statusBarColor = Color.TRANSPARENT
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+
+            binding.appBarLayout.setPadding(0, insets.top, 0, 0)
+
+            binding.bottomNav.setPadding(0, 0, 0, insets.bottom)
+
+            windowInsets
+        }
 
         val nav = binding.toolbar.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.ivNav)
         nav.setOnClickListener {
@@ -49,7 +65,7 @@ class MainActivity : BaseActivity() {
             }
         }
 
-        // Load default fragment
+
         if (savedInstanceState == null) {
             bottomNav.selectedItemId = R.id.nav_home
         }
