@@ -9,10 +9,13 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.myPage.pdfGenerator.R
 
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+
 class MyApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        PDFBoxResourceLoader.init(applicationContext)
 
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {

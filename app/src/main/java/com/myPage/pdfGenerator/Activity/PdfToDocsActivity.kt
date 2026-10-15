@@ -25,6 +25,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.myPage.pdfGenerator.utils.CompressLevelBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -51,6 +52,7 @@ class PdfToDocsActivity : AppCompatActivity() {
     private lateinit var docsAdapter: DocsAdapter
     private var pendingDownloadFile: File? = null
     private var docxName: String = "converted"
+    private var backPressedTime: Long = 0L
 
     private var pendingPdfUri: Uri? = null
 
@@ -60,6 +62,7 @@ class PdfToDocsActivity : AppCompatActivity() {
                 selectedPdfUri = uri
                 binding.tvSelectedPdf.visibility=View.VISIBLE
                 binding.btnConvert.isEnabled = true
+                binding.btnPickPdf.isEnabled = false
             }
         }
     private val createDocDownload =
@@ -122,19 +125,77 @@ class PdfToDocsActivity : AppCompatActivity() {
         binding.btnConvert.isEnabled = false
         binding.btnConvert.setOnClickListener {
             val pdfUri = selectedPdfUri ?: return@setOnClickListener
+            val defaultName = com.myPage.pdfGenerator.utils.CommonUtil.getFileBaseName(this, pdfUri, "converted")
 
-            showNameDialog { enteredName ->
+            showNameDialog(defaultName) { enteredName ->
                 docxName = enteredName
 
-                val outFile = File(getDocsDir(), "${docxName}.docx")
-                convertPdfToDocx_AsImages_SaveToFile(pdfUri, outFile)
-                binding.btnConvert.isEnabled = false
-                binding.tvSelectedPdf.visibility=View.GONE
+                val originalSize = com.myPage.pdfGenerator.utils.CommonUtil.getUriFileSize(this, pdfUri)
+
+                com.myPage.pdfGenerator.utils.CompressDialogHelper.showDocumentCompressDialog(
+                    context = this,
+                    title = "Compress Output DOCS",
+                    sizeLabel = "Estimated DOCS Size",
+                    scope = lifecycleScope,
+                    fallbackHighBytes = originalSize,
+                    estimateSizes = {
+                        estimatePdfToDocxSizes(this@PdfToDocsActivity, pdfUri)
+                    },
+                    onConfirmed = { compressLevel ->
+                        val outFile = File(getDocsDir(), "${docxName}.docx")
+                        convertPdfToDocx_AsImages_SaveToFile(pdfUri, outFile, compressLevel)
+                    },
+                    onCancelled = {
+                        // PDF to DOCS not created if cancelled
+                    },
+                    logoResId = com.myPage.pdfGenerator.R.drawable.docs
+                )
             }
         }
 
 
     }
+
+    private fun estimatePdfToDocxSizes(
+        context: android.content.Context,
+        pdfUri: Uri
+    ): Map<com.myPage.pdfGenerator.utils.CompressLevelBar.Level, Long> {
+        val result = mutableMapOf<com.myPage.pdfGenerator.utils.CompressLevelBar.Level, Long>()
+        try {
+            contentResolver.openFileDescriptor(pdfUri, "r")?.use { pfd ->
+                PdfRenderer(pfd).use { renderer ->
+                    val pageCount = renderer.pageCount
+                    if (pageCount == 0) return emptyMap()
+
+                    renderer.openPage(0).use { page ->
+                        for (level in com.myPage.pdfGenerator.utils.CompressLevelBar.Level.values()) {
+                            val scale = when (level) {
+                                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH -> 1.5f
+                                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.MEDIUM -> 1.0f
+                                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.LOW -> 0.75f
+                            }
+                            val targetW = (page.width * scale).toInt().coerceAtLeast(100)
+                            val targetH = (page.height * scale).toInt().coerceAtLeast(100)
+                            val bmp = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
+                            page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+
+                            val baos = ByteArrayOutputStream()
+                            bmp.compress(Bitmap.CompressFormat.JPEG, level.quality, baos)
+                            bmp.recycle()
+
+                            val pageJpegBytes = baos.size().toLong()
+                            val totalDocxBytes = (pageJpegBytes * pageCount) + (pageCount * 300L) + 14000L
+                            result[level] = totalDocxBytes
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return result
+    }
+
     private fun loadRecentDocs() {
         val dir = getDocsDir()
 
@@ -146,8 +207,20 @@ class PdfToDocsActivity : AppCompatActivity() {
             ?: emptyList()
 
         docsAdapter.submitList(list)
+
+        if (list.isEmpty()) {
+            binding.ivShowNothing.visibility = View.VISIBLE
+            binding.rvDocs.visibility = View.GONE
+        } else {
+            binding.ivShowNothing.visibility = View.GONE
+            binding.rvDocs.visibility = View.VISIBLE
+        }
     }
-    private fun convertPdfToDocx_AsImages_SaveToFile(pdfUri: Uri, outFile: File) {
+    private fun convertPdfToDocx_AsImages_SaveToFile(
+        pdfUri: Uri,
+        outFile: File,
+        compressLevel: com.myPage.pdfGenerator.utils.CompressLevelBar.Level = com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH
+    ) {
         binding.progress.visibility = View.VISIBLE
         binding.btnPickPdf.isEnabled = false
         binding.btnConvert.isEnabled = false
@@ -164,18 +237,24 @@ class PdfToDocsActivity : AppCompatActivity() {
                                 requireNotNull(pfd)
 
                                 PdfRenderer(pfd).use { renderer ->
+                                    val scale = when (compressLevel) {
+                                        CompressLevelBar.Level.HIGH -> 1.5f
+                                        CompressLevelBar.Level.MEDIUM -> 1.0f
+                                        CompressLevelBar.Level.LOW -> 0.75f
+                                    }
+                                    val jpegQuality = compressLevel.quality
+
                                     for (i in 0 until renderer.pageCount) {
                                         renderer.openPage(i).use { page ->
-                                            val scale = 2
                                             val bmp = Bitmap.createBitmap(
-                                                page.width * scale,
-                                                page.height * scale,
+                                                (page.width * scale).toInt().coerceAtLeast(100),
+                                                (page.height * scale).toInt().coerceAtLeast(100),
                                                 Bitmap.Config.ARGB_8888
                                             )
                                             page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
 
                                             val bytes = ByteArrayOutputStream().use { baos ->
-                                                bmp.compress(Bitmap.CompressFormat.JPEG, 90, baos)
+                                                bmp.compress(Bitmap.CompressFormat.JPEG, jpegQuality, baos)
                                                 baos.toByteArray()
                                             }
                                             bmp.recycle()
@@ -220,26 +299,35 @@ class PdfToDocsActivity : AppCompatActivity() {
 
             binding.progress.visibility = View.GONE
             binding.btnPickPdf.isEnabled = true
-            binding.btnConvert.isEnabled = true
 
             result.onSuccess {
                 Toast.makeText(this@PdfToDocsActivity, "Saved: ${outFile.name}", Toast.LENGTH_SHORT).show()
                 loadRecentDocs()
+                resetConverterState()
             }.onFailure { e ->
                 Toast.makeText(this@PdfToDocsActivity, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
+                binding.btnConvert.isEnabled = true
+                binding.tvSelectedPdf.visibility = View.VISIBLE
             }
         }
     }
 
-    private fun showNameDialog(onOk: (String) -> Unit) {
+    private fun resetConverterState() {
+        selectedPdfUri = null
+        binding.tvSelectedPdf.visibility = View.GONE
+        binding.btnConvert.isEnabled = false
+        binding.btnPickPdf.isEnabled = true
+    }
+
+    private fun showNameDialog(defaultName: String, onOk: (String) -> Unit) {
         val v = layoutInflater.inflate(R.layout.dialog_rename, null, false)
 
         val et = v.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etName)
         val btnOk = v.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnOk)
         val btnCancel = v.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnCancel)
 
-        //  blank field (NO default name)
-        et.setText("")
+        et.setText(defaultName)
+        et.selectAll()
         et.requestFocus()
 
         val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
@@ -257,7 +345,16 @@ class PdfToDocsActivity : AppCompatActivity() {
                 et.error = "Enter name"
                 return@setOnClickListener
             }
-            onOk(sanitizeFileName(name))
+            val sanitized = sanitizeFileName(name)
+            // Check if user didn't change the name and a file with this name already exists
+            if (sanitized == sanitizeFileName(defaultName)) {
+                val existingFile = File(getDocsDir(), "${sanitized}.docx")
+                if (existingFile.exists()) {
+                    et.error = "A file with this name already exists, please choose a different name"
+                    return@setOnClickListener
+                }
+            }
+            onOk(sanitized)
             dialog.dismiss()
         }
 
@@ -345,14 +442,14 @@ class PdfToDocsActivity : AppCompatActivity() {
 
             binding.progress.visibility = View.GONE
             binding.btnPickPdf.isEnabled = true
-            binding.btnConvert.isEnabled = true
 
             result.onSuccess {
-
                 Toast.makeText(this@PdfToDocsActivity, "DOCX (OCR) saved!", Toast.LENGTH_SHORT).show()
+                resetConverterState()
             }.onFailure { e ->
-
                 Toast.makeText(this@PdfToDocsActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                binding.btnConvert.isEnabled = true
+                binding.tvSelectedPdf.visibility = View.VISIBLE
             }
         }
     }
@@ -451,12 +548,7 @@ class PdfToDocsActivity : AppCompatActivity() {
         }
     }
     private fun openDocx(file: File) {
-        val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        startActivity(Intent.createChooser(intent, "Open DOCX"))
+        FileViewerActivity.start(this, file)
     }
     private fun shareDocx(file: File) {
         val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
@@ -505,6 +597,17 @@ class PdfToDocsActivity : AppCompatActivity() {
             pendingDownloadFile = file
             createDocDownload.launch(file.name)
         }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (backPressedTime + 2000 > System.currentTimeMillis()) {
+            super.onBackPressed()
+            finishAffinity()
+        } else {
+            Toast.makeText(this, "Press back again to exit", Toast.LENGTH_SHORT).show()
+        }
+        backPressedTime = System.currentTimeMillis()
     }
 
     private fun applyA4Page(docx: XWPFDocument): PageSpec {

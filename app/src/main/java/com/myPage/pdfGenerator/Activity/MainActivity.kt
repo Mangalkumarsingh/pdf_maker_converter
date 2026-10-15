@@ -1,4 +1,4 @@
-package com.myPage.pdfGenerator
+package com.myPage.pdfGenerator.Activity
 
 import android.graphics.Color
 import android.os.Bundle
@@ -7,11 +7,12 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.myPage.pdfGenerator.Activity.BaseActivity
+import com.google.android.material.imageview.ShapeableImageView
+import com.myPage.pdfGenerator.R
+import com.myPage.pdfGenerator.databinding.ActivityMainBinding
 import com.myPage.pdfGenerator.fragment.HomeFragment
 import com.myPage.pdfGenerator.fragment.ProfileFragment
 import com.myPage.pdfGenerator.fragment.RecentFragment
-import com.myPage.pdfGenerator.databinding.ActivityMainBinding
 
 class MainActivity : BaseActivity() {
 
@@ -41,7 +42,7 @@ class MainActivity : BaseActivity() {
             windowInsets
         }
 
-        val nav = binding.toolbar.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.ivNav)
+        val nav = binding.toolbar.findViewById<ShapeableImageView>(R.id.ivNav)
         nav.setOnClickListener {
             onBackPressedDispatcher.onBackPressed()
         }

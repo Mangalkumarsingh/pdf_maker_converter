@@ -50,11 +50,15 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".Activity.HomeActivity"
+            android:name=".Activity.ImageToPdfActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".MainActivity"
+            android:name=".Activity.MainActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".Activity.FileViewerActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 

@@ -5,7 +5,8 @@
     android:id="@+id/root"
     android:background="@color/white"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
 
     <ImageView
         android:id="@+id/imgBottomBg"
@@ -13,6 +14,7 @@
         android:layout_height="500dp"
         android:layout_gravity="bottom"
         android:layout_marginBottom="-20dp"
+        android:visibility="gone"
         android:src="@drawable/background_img"
        android:scaleType="centerCrop"
         android:contentDescription="@null"
@@ -21,7 +23,8 @@
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:background="@color/white"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:fitsSystemWindows="true">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
@@ -127,6 +130,16 @@
                 android:text="Recent PDFs"
                 android:textStyle="bold"
                 android:textSize="16sp"/>
+
+            <ImageView
+                android:id="@+id/ivShowNothing"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:layout_marginTop="20dp"
+                android:scaleType="centerInside"
+                android:visibility="gone"
+                android:src="@drawable/show_nothing"
+                android:contentDescription="No items"/>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvRecentPdfs"

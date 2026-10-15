@@ -2,6 +2,7 @@ package com.myPage.pdfGenerator.Activity
 
 import android.content.ContentValues
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Paint
@@ -32,8 +33,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.apache.poi.xwpf.usermodel.XWPFDocument
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStream
 
 
 class DocsToPdfActivity : AppCompatActivity() {
@@ -45,11 +48,13 @@ class DocsToPdfActivity : AppCompatActivity() {
 
     private lateinit var pdfMakingAdapter: PdfMakingAdapter
     private var pendingDownloadFile: File? = null
+    private val preRenderedPdfBytes = mutableMapOf<com.myPage.pdfGenerator.utils.CompressLevelBar.Level, ByteArray>()
 
     private val pickDocLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 selectedDocUri = uri
+                preRenderedPdfBytes.clear()
                 binding.tvSelectedPdf.visibility= View.VISIBLE
                 binding.btnConvert.isEnabled = true
             }
@@ -101,26 +106,43 @@ class DocsToPdfActivity : AppCompatActivity() {
         binding.btnConvert.isEnabled = false
         binding.btnConvert.setOnClickListener {
             val docUri = selectedDocUri ?: return@setOnClickListener
+            val defaultName = com.myPage.pdfGenerator.utils.CommonUtil.getFileBaseName(this, docUri, "converted")
 
-            showNameDialogCustom { entered ->
+            showNameDialogCustom(defaultName) { entered ->
                 pdfName = entered
 
-                val outFile = File(getPdfsDir(), "${pdfName}.pdf")
-                convertDocxToPdf(docUri, outFile)
-                binding.btnConvert.isEnabled = false
-                binding.tvSelectedPdf.visibility=View.GONE
+                val originalSize = com.myPage.pdfGenerator.utils.CommonUtil.getUriFileSize(this, docUri)
+
+                com.myPage.pdfGenerator.utils.CompressDialogHelper.showDocumentCompressDialog(
+                    context = this,
+                    title = "Compress Output PDF",
+                    sizeLabel = "Estimated PDF Size",
+                    scope = lifecycleScope,
+                    fallbackHighBytes = originalSize,
+                    estimateSizes = {
+                        estimateDocsToPdfSizes(this@DocsToPdfActivity, docUri)
+                    },
+                    onConfirmed = { compressLevel ->
+                        val outFile = File(getPdfsDir(), "${pdfName}.pdf")
+                        convertDocxToPdf(docUri, outFile, compressLevel)
+                    },
+                    onCancelled = {
+                        // DOCS to PDF not created if cancelled
+                    }
+                )
             }
         }
     }
 
 
-    private fun showNameDialogCustom(onOk: (String) -> Unit) {
+    private fun showNameDialogCustom(defaultName: String, onOk: (String) -> Unit) {
         val v = layoutInflater.inflate(R.layout.dialog_rename, null, false)
         val et = v.findViewById<TextInputEditText>(R.id.etName)
         val btnOk = v.findViewById<MaterialButton>(R.id.btnOk)
         val btnCancel = v.findViewById<MaterialButton>(R.id.btnCancel)
 
-        et.setText("")
+        et.setText(defaultName)
+        et.selectAll()
         et.requestFocus()
 
         val dialog = MaterialAlertDialogBuilder(this).setView(v).create()
@@ -140,7 +162,156 @@ class DocsToPdfActivity : AppCompatActivity() {
     private fun sanitizeFileName(name: String): String =
         name.replace(Regex("[^a-zA-Z0-9_\\- ]"), "_").trim()
 
-    private fun convertDocxToPdf(docUri: Uri, outFile: File) {
+    private fun renderDocxToPdf(
+        context: android.content.Context,
+        docUri: Uri,
+        compressLevel: com.myPage.pdfGenerator.utils.CompressLevelBar.Level,
+        outStream: OutputStream
+    ) {
+        context.contentResolver.openInputStream(docUri).use { input ->
+            requireNotNull(input)
+
+            val doc = XWPFDocument(input)
+            val pdf = android.graphics.pdf.PdfDocument()
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = 14f
+                color = Color.BLACK
+            }
+
+            val pageWidth = 595  // A4 approx (points)
+            val pageHeight = 842
+            val margin = 40
+            val maxW = pageWidth - margin * 2
+
+            var pageNumber = 1
+            var pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
+            var page = pdf.startPage(pageInfo)
+            var canvas = page.canvas
+
+            var x = margin.toFloat()
+            var y = margin.toFloat()
+
+            fun newPage() {
+                pdf.finishPage(page)
+                pageNumber++
+                pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
+                page = pdf.startPage(pageInfo)
+                canvas = page.canvas
+                y = margin.toFloat()
+            }
+
+            // helper: wrap text
+            fun drawWrapped(text: String) {
+                val words = text.split(" ")
+                var line = ""
+                for (w in words) {
+                    val test = if (line.isEmpty()) w else "$line $w"
+                    if (paint.measureText(test) <= maxW) {
+                        line = test
+                    } else {
+                        if (y > pageHeight - margin) newPage()
+                        canvas.drawText(line, x, y, paint)
+                        y += paint.textSize + 8
+                        line = w
+                    }
+                }
+                if (line.isNotEmpty()) {
+                    if (y > pageHeight - margin) newPage()
+                    canvas.drawText(line, x, y, paint)
+                    y += paint.textSize + 10
+                }
+            }
+
+            val maxDim = when (compressLevel) {
+                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH -> 900
+                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.MEDIUM -> 600
+                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.LOW -> 380
+            }
+
+            for (p in doc.paragraphs) {
+                val text = p.text?.trim().orEmpty()
+                if (text.isNotEmpty()) drawWrapped(text)
+
+                for (run in p.runs) {
+                    val pics = run.embeddedPictures
+                    for (pic in pics) {
+                        val bytes = pic.pictureData.data
+                        var bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: continue
+
+                        val currentMax = maxOf(bmp.width, bmp.height)
+                        if (currentMax > maxDim) {
+                            val scale = maxDim.toFloat() / currentMax.toFloat()
+                            val targetW = (bmp.width * scale).toInt().coerceAtLeast(100)
+                            val targetH = (bmp.height * scale).toInt().coerceAtLeast(100)
+                            val scaled = Bitmap.createScaledBitmap(bmp, targetW, targetH, true)
+                            if (scaled != bmp) {
+                                bmp.recycle()
+                                bmp = scaled
+                            }
+                        }
+
+                        val availableW = maxW.toFloat()
+                        val ratio = bmp.height.toFloat() / bmp.width.toFloat()
+                        val drawW = availableW
+                        val drawH = drawW * ratio
+
+                        if (y + drawH > pageHeight - margin) newPage()
+
+                        val dst = RectF(x, y, x + drawW, y + drawH)
+                        canvas.drawBitmap(bmp, null, dst, null)
+                        y += drawH + 12
+                        bmp.recycle()
+                    }
+                }
+
+                y += 6
+                if (y > pageHeight - margin) newPage()
+            }
+
+            pdf.finishPage(page)
+            pdf.writeTo(outStream)
+            pdf.close()
+            doc.close()
+        }
+    }
+
+    private fun estimateDocsToPdfSizes(
+        context: android.content.Context,
+        docUri: Uri
+    ): Map<com.myPage.pdfGenerator.utils.CompressLevelBar.Level, Long> {
+        val result = mutableMapOf<com.myPage.pdfGenerator.utils.CompressLevelBar.Level, Long>()
+        try {
+            // Render HIGH into memory
+            val baosHigh = ByteArrayOutputStream()
+            renderDocxToPdf(context, docUri, com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH, baosHigh)
+            val highBytes = baosHigh.toByteArray()
+            preRenderedPdfBytes[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH] = highBytes
+            result[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH] = highBytes.size.toLong()
+
+            // Render MEDIUM into memory
+            val baosMed = ByteArrayOutputStream()
+            renderDocxToPdf(context, docUri, com.myPage.pdfGenerator.utils.CompressLevelBar.Level.MEDIUM, baosMed)
+            val medBytes = baosMed.toByteArray()
+            preRenderedPdfBytes[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.MEDIUM] = medBytes
+            result[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.MEDIUM] = medBytes.size.toLong()
+
+            // Render LOW into memory
+            val baosLow = ByteArrayOutputStream()
+            renderDocxToPdf(context, docUri, com.myPage.pdfGenerator.utils.CompressLevelBar.Level.LOW, baosLow)
+            val lowBytes = baosLow.toByteArray()
+            preRenderedPdfBytes[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.LOW] = lowBytes
+            result[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.LOW] = lowBytes.size.toLong()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return result
+    }
+
+    private fun convertDocxToPdf(
+        docUri: Uri,
+        outFile: File,
+        compressLevel: com.myPage.pdfGenerator.utils.CompressLevelBar.Level = com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH
+    ) {
         binding.progress.visibility = View.VISIBLE
         binding.btnPickPdf.isEnabled = false
         binding.btnConvert.isEnabled = false
@@ -148,94 +319,17 @@ class DocsToPdfActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    contentResolver.openInputStream(docUri).use { input ->
-                        requireNotNull(input)
-
-                        val doc = XWPFDocument(input)
-
-                        val pdf = android.graphics.pdf.PdfDocument()
-                        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                            textSize = 14f
-                            color = Color.BLACK
+                    val preCached = preRenderedPdfBytes[compressLevel]
+                    if (preCached != null && preCached.isNotEmpty()) {
+                        FileOutputStream(outFile).use { fos ->
+                            fos.write(preCached)
+                            fos.flush()
                         }
-
-                        val pageWidth = 595  // A4 approx (points)
-                        val pageHeight = 842
-                        val margin = 40
-                        val maxW = pageWidth - margin * 2
-
-                        var pageNumber = 1
-                        var pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
-                        var page = pdf.startPage(pageInfo)
-                        var canvas = page.canvas
-
-                        var x = margin.toFloat()
-                        var y = margin.toFloat()
-
-                        fun newPage() {
-                            pdf.finishPage(page)
-                            pageNumber++
-                            pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
-                            page = pdf.startPage(pageInfo)
-                            canvas = page.canvas
-                            y = margin.toFloat()
+                    } else {
+                        FileOutputStream(outFile).use { out ->
+                            renderDocxToPdf(this@DocsToPdfActivity, docUri, compressLevel, out)
+                            out.flush()
                         }
-
-                        // helper: wrap text
-                        fun drawWrapped(text: String) {
-                            val words = text.split(" ")
-                            var line = ""
-                            for (w in words) {
-                                val test = if (line.isEmpty()) w else "$line $w"
-                                if (paint.measureText(test) <= maxW) {
-                                    line = test
-                                } else {
-                                    if (y > pageHeight - margin) newPage()
-                                    canvas.drawText(line, x, y, paint)
-                                    y += paint.textSize + 8
-                                    line = w
-                                }
-                            }
-                            if (line.isNotEmpty()) {
-                                if (y > pageHeight - margin) newPage()
-                                canvas.drawText(line, x, y, paint)
-                                y += paint.textSize + 10
-                            }
-                        }
-
-                        for (p in doc.paragraphs) {
-                            val text = p.text?.trim().orEmpty()
-                            if (text.isNotEmpty()) drawWrapped(text)
-
-                            for (run in p.runs) {
-                                val pics = run.embeddedPictures
-                                for (pic in pics) {
-                                    val bytes = pic.pictureData.data
-                                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: continue
-
-                                    val availableW = maxW.toFloat()
-                                    val ratio = bmp.height.toFloat() / bmp.width.toFloat()
-                                    val drawW = availableW
-                                    val drawH = drawW * ratio
-
-                                    if (y + drawH > pageHeight - margin) newPage()
-
-                                    val dst = RectF(x, y, x + drawW, y + drawH)
-                                    canvas.drawBitmap(bmp, null, dst, null)
-                                    y += drawH + 12
-                                    bmp.recycle()
-                                }
-                            }
-
-                            y += 6
-                            if (y > pageHeight - margin) newPage()
-                        }
-
-                        pdf.finishPage(page)
-
-                        FileOutputStream(outFile).use { out -> pdf.writeTo(out) }
-                        pdf.close()
-                        doc.close()
                     }
                 }
             }
@@ -246,15 +340,19 @@ class DocsToPdfActivity : AppCompatActivity() {
             result.onSuccess {
                 Toast.makeText(this@DocsToPdfActivity, "Saved: ${outFile.name}", Toast.LENGTH_SHORT).show()
                 loadRecentPdfs()
-
-                //  force user to pick again
-                selectedDocUri = null
-                binding.btnConvert.isEnabled = false
+                resetConverterState()
             }.onFailure { e ->
                 Toast.makeText(this@DocsToPdfActivity, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
                 binding.btnConvert.isEnabled = true
+                binding.tvSelectedPdf.visibility = View.VISIBLE
             }
         }
+    }
+
+    private fun resetConverterState() {
+        selectedDocUri = null
+        binding.tvSelectedPdf.visibility = View.GONE
+        binding.btnConvert.isEnabled = false
     }
 
     private fun getPdfsDir(): File {
@@ -275,12 +373,7 @@ class DocsToPdfActivity : AppCompatActivity() {
     }
 
     private fun openPdf(file: File) {
-        val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
-        val i = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/pdf")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        startActivity(Intent.createChooser(i, "Open PDF"))
+        FileViewerActivity.start(this, file)
     }
 
     private fun sharePdf(file: File) {

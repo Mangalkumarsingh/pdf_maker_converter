@@ -4,11 +4,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.myPage.pdfGenerator.MainActivity
 import com.myPage.pdfGenerator.databinding.ActivitySplashBinding
-import com.google.android.datatransport.BuildConfig
 
 
 class SplashActivity : AppCompatActivity() {

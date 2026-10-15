@@ -15,4 +15,11 @@
     <color name="color_edit">#1976D2</color>
     <color name="color_delete">#EF5350</color>
     <color name="text_sub">#B0BEC5</color>
+    
+    <!-- Compressor Colors -->
+    <color name="compress_track">#E0E0E0</color>
+    <color name="compress_active">#EE947A</color>
+    <color name="compress_point_inactive">#BDBDBD</color>
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
 </resources>

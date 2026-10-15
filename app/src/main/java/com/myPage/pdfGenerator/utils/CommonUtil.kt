@@ -14,12 +14,7 @@ import java.io.File
 object CommonUtil {
 
     fun openPdf(context: Context, packageName: String, file: File) {
-        val uri = FileProvider.getUriForFile(context, "${packageName}.fileprovider", file)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/pdf")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        context.startActivity(Intent.createChooser(intent, "Open PDF"))
+        com.myPage.pdfGenerator.Activity.FileViewerActivity.start(context, file)
     }
 
     fun sharePdf(context: Context, packageName: String, file: File) {
@@ -82,5 +77,64 @@ object CommonUtil {
 
         // delete older (index maxKeep .. end)
         files.drop(maxKeep).forEach { it.delete() }
+    }
+
+    fun getFileNameFromUri(context: Context, uri: Uri): String {
+        var name = ""
+        if (uri.scheme == "content") {
+            try {
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (index != -1 && cursor.moveToFirst()) {
+                        name = cursor.getString(index).orEmpty()
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        if (name.isBlank()) {
+            name = uri.lastPathSegment?.substringAfterLast('/').orEmpty()
+        }
+        return name
+    }
+
+    fun getFileBaseName(context: Context, uri: Uri, fallback: String = "converted"): String {
+        val fullName = getFileNameFromUri(context, uri)
+        val baseName = if (fullName.contains('.')) {
+            fullName.substringBeforeLast('.')
+        } else {
+            fullName
+        }
+        return baseName.trim().ifEmpty { fallback }
+    }
+
+    fun getUriFileSize(context: Context, uri: Uri): Long {
+        var size = -1L
+        if (uri.scheme == "content") {
+            try {
+                context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                    val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                    if (sizeIndex != -1 && cursor.moveToFirst() && !cursor.isNull(sizeIndex)) {
+                        size = cursor.getLong(sizeIndex)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        if (size <= 0L) {
+            try {
+                context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                    val s = pfd.statSize
+                    if (s > 0L) size = s
+                }
+            } catch (_: Exception) {}
+        }
+        if (size <= 0L) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    val available = stream.available().toLong()
+                    if (available > 0L) size = available
+                }
+            } catch (_: Exception) {}
+        }
+        return if (size > 0L) size else 512L * 1024L
     }
 }

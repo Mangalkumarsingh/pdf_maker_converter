@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -25,7 +26,7 @@ import java.io.File
 class SelectedImagesDialogFragment : DialogFragment() {
 
     interface Listener {
-        fun onImagesFinalized(finalUris: List<Uri>, pdfName: String)
+        fun onImagesFinalized(finalUris: List<Uri>, pdfName: String, compressLevel: com.myPage.pdfGenerator.utils.CompressLevelBar.Level)
         fun onAddMoreRequested()
     }
 
@@ -178,8 +179,19 @@ class SelectedImagesDialogFragment : DialogFragment() {
                 return@OnClickListener
             }
             showRenameDialogCustom("MyPDF_${System.currentTimeMillis()}") { enteredName ->
-                listener?.onImagesFinalized(adapter.currentList(), enteredName)
-                dismiss()
+                val currentList = adapter.currentList()
+                com.myPage.pdfGenerator.utils.CompressDialogHelper.showCompressDialog(
+                    requireContext(),
+                    currentList,
+                    viewLifecycleOwner.lifecycleScope,
+                    onConfirmed = { compressLevel ->
+                        listener?.onImagesFinalized(currentList, enteredName, compressLevel)
+                        dismiss()
+                    },
+                    onCancelled = {
+                        // When user cancels compression dialog, PDF is NOT created
+                    }
+                )
             }
         }
         binding.cardDone.setOnClickListener(doneAction)

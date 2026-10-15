@@ -9,11 +9,11 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.myPage.pdfGenerator.Activity.DocsToPdfActivity
-import com.myPage.pdfGenerator.Activity.HomeActivity
+import com.myPage.pdfGenerator.Activity.ImageToPdfActivity
 import com.myPage.pdfGenerator.Activity.PdfToDocsActivity
-import com.myPage.pdfGenerator.MainActivity.Companion.TOOL_DOCS_TO_PDF
-import com.myPage.pdfGenerator.MainActivity.Companion.TOOL_IMG_TO_PDF
-import com.myPage.pdfGenerator.MainActivity.Companion.TOOL_PDF_TO_DOCS
+import com.myPage.pdfGenerator.Activity.MainActivity.Companion.TOOL_DOCS_TO_PDF
+import com.myPage.pdfGenerator.Activity.MainActivity.Companion.TOOL_IMG_TO_PDF
+import com.myPage.pdfGenerator.Activity.MainActivity.Companion.TOOL_PDF_TO_DOCS
 import com.myPage.pdfGenerator.R
 import com.myPage.pdfGenerator.adapter.ToolsAdapter
 import com.myPage.pdfGenerator.model.ToolItem
@@ -38,7 +38,7 @@ class HomeFragment : Fragment() {
                     startActivity(Intent(requireContext(), DocsToPdfActivity::class.java))
                 }
                 TOOL_IMG_TO_PDF -> {
-                    startActivity(Intent(requireContext(), HomeActivity::class.java))
+                    startActivity(Intent(requireContext(), ImageToPdfActivity::class.java))
                 }
             }
         }

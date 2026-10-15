@@ -126,14 +126,7 @@ class RecentFragment : Fragment() {
     }
 
     private fun openFile(file: File) {
-        val uri = FileProvider.getUriForFile(requireContext(), "${requireContext().packageName}.fileprovider", file)
-        val mimeType = if (file.name.endsWith(".pdf", true)) "application/pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, mimeType)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        startActivity(Intent.createChooser(intent, "Open File"))
+        com.myPage.pdfGenerator.Activity.FileViewerActivity.start(requireContext(), file)
     }
 
     private fun shareFile(file: File) {

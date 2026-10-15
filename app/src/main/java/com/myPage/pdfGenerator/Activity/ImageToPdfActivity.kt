@@ -18,18 +18,24 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.myPage.pdfGenerator.R
 import com.myPage.pdfGenerator.adapter.RecentPdfAdapter
 import com.myPage.pdfGenerator.adapter.SelectedImagesAdapter
-import com.myPage.pdfGenerator.databinding.ActivityHomeBinding
 import com.myPage.pdfGenerator.fragment.SelectedImagesDialogFragment
 import com.yalantis.ucrop.UCrop
+import androidx.lifecycle.lifecycleScope
+import com.myPage.pdfGenerator.databinding.ActivityDocsToPdfBinding
+import com.myPage.pdfGenerator.databinding.ActivityImageToPdfBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 
-class HomeActivity : AppCompatActivity(),SelectedImagesDialogFragment.Listener {
+class ImageToPdfActivity : AppCompatActivity(),SelectedImagesDialogFragment.Listener {
 
-    private lateinit var binding: ActivityHomeBinding
+    private lateinit var binding: ActivityImageToPdfBinding
 
      val selectedUris = mutableListOf<Uri>()
     private var editingIndex: Int = -1
+    private var backPressedTime: Long = 0L
 
     private lateinit var recentAdapter: RecentPdfAdapter
     private val imagesAdapter = SelectedImagesAdapter { uri, position ->
@@ -102,7 +108,7 @@ class HomeActivity : AppCompatActivity(),SelectedImagesDialogFragment.Listener {
     @SuppressLint("ResourceAsColor")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityHomeBinding.inflate(layoutInflater)
+        binding = ActivityImageToPdfBinding.inflate(layoutInflater)
         setContentView(binding.root)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val window = getWindow()
@@ -137,21 +143,26 @@ class HomeActivity : AppCompatActivity(),SelectedImagesDialogFragment.Listener {
         loadRecentPdfs()
     }
 
-    override fun onImagesFinalized(finalUris: List<Uri>, pdfName: String) {
-        selectedUris.clear()
-        selectedUris.addAll(finalUris)
-
-        if (selectedUris.isEmpty()) return
+    override fun onImagesFinalized(
+        finalUris: List<Uri>,
+        pdfName: String,
+        compressLevel: com.myPage.pdfGenerator.utils.CompressLevelBar.Level
+    ) {
+        if (finalUris.isEmpty()) return
 
         val safeName = pdfName.trim()
             .ifEmpty { "PDF_${System.currentTimeMillis()}" }
             .replace(Regex("[^a-zA-Z0-9_\\- ]"), "_")
 
-        val pdfFile = PdfCreator.createPdfFromImages(this, selectedUris, safeName)
-        keepOnlyLatestPdfs(6)
-        Toast.makeText(this, "PDF saved: ${pdfFile.name}", Toast.LENGTH_SHORT).show()
-        loadRecentPdfs()
-        selectedUris.clear()
+        lifecycleScope.launch {
+            val pdfFile = withContext(Dispatchers.IO) {
+                PdfCreator.createPdfFromImages(this@ImageToPdfActivity, finalUris, safeName, compressLevel)
+            }
+            keepOnlyLatestPdfs(6)
+            Toast.makeText(this@ImageToPdfActivity, "PDF saved: ${pdfFile.name}", Toast.LENGTH_SHORT).show()
+            loadRecentPdfs()
+            selectedUris.clear()
+        }
     }
 
 
@@ -207,15 +218,18 @@ class HomeActivity : AppCompatActivity(),SelectedImagesDialogFragment.Listener {
                 ?: emptyList()
 
         recentAdapter.submitList(list)
+
+        if (list.isEmpty()) {
+            binding.ivShowNothing.visibility = android.view.View.VISIBLE
+            binding.rvRecentPdfs.visibility = android.view.View.GONE
+        } else {
+            binding.ivShowNothing.visibility = android.view.View.GONE
+            binding.rvRecentPdfs.visibility = android.view.View.VISIBLE
+        }
     }
 
     private fun openPdf(file: File) {
-        val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/pdf")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        startActivity(Intent.createChooser(intent, "Open PDF"))
+        FileViewerActivity.start(this, file)
     }
 
     private fun sharePdf(file: File) {
@@ -275,5 +289,16 @@ class HomeActivity : AppCompatActivity(),SelectedImagesDialogFragment.Listener {
             pendingDownloadFile = file
             createDocument.launch(file.name)
         }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (backPressedTime + 2000 > System.currentTimeMillis()) {
+            super.onBackPressed()
+            finishAffinity()
+        } else {
+            Toast.makeText(this, "Press back again to exit", Toast.LENGTH_SHORT).show()
+        }
+        backPressedTime = System.currentTimeMillis()
     }
 }
