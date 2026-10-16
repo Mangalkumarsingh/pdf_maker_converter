@@ -17,6 +17,7 @@ import com.myPage.pdfGenerator.fragment.RecentFragment
 class MainActivity : BaseActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private var backPressedTime: Long = 0
 
     companion object {
         const val TOOL_PDF_TO_DOCS = 1
@@ -70,6 +71,26 @@ class MainActivity : BaseActivity() {
         if (savedInstanceState == null) {
             bottomNav.selectedItemId = R.id.nav_home
         }
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true){
+            override fun handleOnBackPressed() {
+                if (bottomNav.selectedItemId != R.id.nav_home) {
+                    bottomNav.selectedItemId = R.id.nav_home
+                    return
+                }
+                if (backPressedTime + 2000 > System.currentTimeMillis()) {
+                    finishAffinity()
+                } else {
+                    android.widget.Toast.makeText(
+                        this@MainActivity,
+                        "Press back again to exit",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+                backPressedTime = System.currentTimeMillis()
+
+            }
+
+        })
     }
 
     private fun loadFragment(fragment: Fragment) {

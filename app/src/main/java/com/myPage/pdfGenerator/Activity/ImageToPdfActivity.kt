@@ -35,7 +35,6 @@ class ImageToPdfActivity : AppCompatActivity(),SelectedImagesDialogFragment.List
 
      val selectedUris = mutableListOf<Uri>()
     private var editingIndex: Int = -1
-    private var backPressedTime: Long = 0L
 
     private lateinit var recentAdapter: RecentPdfAdapter
     private val imagesAdapter = SelectedImagesAdapter { uri, position ->
@@ -115,7 +114,9 @@ class ImageToPdfActivity : AppCompatActivity(),SelectedImagesDialogFragment.List
             window.setStatusBarColor(getResources().getColor(R.color.btn_color));
         }
 
-        binding.toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        binding.toolbar.findViewById<android.widget.ImageView>(R.id.ivBack).setOnClickListener {
+            finish()
+        }
         
         binding.toolbar.findViewById<android.widget.ImageView>(R.id.ivProfile)?.setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
@@ -291,14 +292,4 @@ class ImageToPdfActivity : AppCompatActivity(),SelectedImagesDialogFragment.List
         }
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (backPressedTime + 2000 > System.currentTimeMillis()) {
-            super.onBackPressed()
-            finishAffinity()
-        } else {
-            Toast.makeText(this, "Press back again to exit", Toast.LENGTH_SHORT).show()
-        }
-        backPressedTime = System.currentTimeMillis()
-    }
 }

@@ -1,8 +1,11 @@
 package com.myPage.pdfGenerator.Activity
 
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.Build
@@ -11,6 +14,7 @@ import android.os.Environment
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.view.View
+import android.view.WindowManager
 import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,6 +39,7 @@ import org.apache.poi.xwpf.usermodel.BreakType
 import org.apache.poi.xwpf.usermodel.Document
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment
 import org.apache.poi.xwpf.usermodel.XWPFDocument
+import org.bouncycastle.jcajce.provider.asymmetric.GOST
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr
@@ -52,7 +57,6 @@ class PdfToDocsActivity : AppCompatActivity() {
     private lateinit var docsAdapter: DocsAdapter
     private var pendingDownloadFile: File? = null
     private var docxName: String = "converted"
-    private var backPressedTime: Long = 0L
 
     private var pendingPdfUri: Uri? = null
 
@@ -116,7 +120,9 @@ class PdfToDocsActivity : AppCompatActivity() {
         loadRecentDocs()
 
         binding.toolbar.title = "PDF → DOCS"
-        binding.toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        binding.toolbar.findViewById<android.widget.ImageView>(R.id.ivBack).setOnClickListener {
+            finish()
+        }
 
         binding.btnPickPdf.setOnClickListener {
             pickPdfLauncher.launch(arrayOf("application/pdf"))
@@ -157,10 +163,10 @@ class PdfToDocsActivity : AppCompatActivity() {
     }
 
     private fun estimatePdfToDocxSizes(
-        context: android.content.Context,
+        context: Context,
         pdfUri: Uri
-    ): Map<com.myPage.pdfGenerator.utils.CompressLevelBar.Level, Long> {
-        val result = mutableMapOf<com.myPage.pdfGenerator.utils.CompressLevelBar.Level, Long>()
+    ): Map<CompressLevelBar.Level, Long> {
+        val result = mutableMapOf<CompressLevelBar.Level, Long>()
         try {
             contentResolver.openFileDescriptor(pdfUri, "r")?.use { pfd ->
                 PdfRenderer(pfd).use { renderer ->
@@ -168,11 +174,11 @@ class PdfToDocsActivity : AppCompatActivity() {
                     if (pageCount == 0) return emptyMap()
 
                     renderer.openPage(0).use { page ->
-                        for (level in com.myPage.pdfGenerator.utils.CompressLevelBar.Level.values()) {
+                        for (level in CompressLevelBar.Level.values()) {
                             val scale = when (level) {
-                                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH -> 1.5f
-                                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.MEDIUM -> 1.0f
-                                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.LOW -> 0.75f
+                                CompressLevelBar.Level.HIGH -> 1.5f
+                                CompressLevelBar.Level.MEDIUM -> 1.0f
+                                CompressLevelBar.Level.LOW -> 0.75f
                             }
                             val targetW = (page.width * scale).toInt().coerceAtLeast(100)
                             val targetH = (page.height * scale).toInt().coerceAtLeast(100)
@@ -211,9 +217,11 @@ class PdfToDocsActivity : AppCompatActivity() {
         if (list.isEmpty()) {
             binding.ivShowNothing.visibility = View.VISIBLE
             binding.rvDocs.visibility = View.GONE
+            binding.docsListText.visibility= View.GONE
         } else {
             binding.ivShowNothing.visibility = View.GONE
             binding.rvDocs.visibility = View.VISIBLE
+            binding.docsListText.visibility= View.VISIBLE
         }
     }
     private fun convertPdfToDocx_AsImages_SaveToFile(
@@ -327,15 +335,35 @@ class PdfToDocsActivity : AppCompatActivity() {
         val btnCancel = v.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnCancel)
 
         et.setText(defaultName)
-        et.selectAll()
+//        et.selectAll()
         et.requestFocus()
 
-        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setView(v)
             .create()
 
         dialog.setCancelable(false)
         dialog.setCanceledOnTouchOutside(false)
+        // 1. Transparent background zaroori hai taaki XML ke rounded corners dikhein
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        dialog.window?.let { window ->
+            // 2. Keyboard automatically open karne ke liye
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+
+            // 3. Blur aur Dim logic
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // Android 12+ ke liye actual Blur effect
+                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                window.attributes.blurBehindRadius = 35
+                window.setDimAmount(0.4f)
+            } else {
+
+                window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                window.setDimAmount(0.75f) // 75% dark background
+            }
+        }
+
 
         btnCancel.setOnClickListener { dialog.dismiss() }
 
@@ -599,16 +627,6 @@ class PdfToDocsActivity : AppCompatActivity() {
         }
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (backPressedTime + 2000 > System.currentTimeMillis()) {
-            super.onBackPressed()
-            finishAffinity()
-        } else {
-            Toast.makeText(this, "Press back again to exit", Toast.LENGTH_SHORT).show()
-        }
-        backPressedTime = System.currentTimeMillis()
-    }
 
     private fun applyA4Page(docx: XWPFDocument): PageSpec {
         val a4Width = 11906

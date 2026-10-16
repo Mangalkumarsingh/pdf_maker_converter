@@ -3,12 +3,15 @@ package com.myPage.pdfGenerator.fragment
 import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
@@ -233,6 +236,7 @@ class SelectedImagesDialogFragment : DialogFragment() {
 
         et.setText(defaultName)
         et.setSelection(et.text?.length ?: 0)
+        et.requestFocus()
 
         val dialog = MaterialAlertDialogBuilder(requireActivity())
             .setView(v)
@@ -240,6 +244,20 @@ class SelectedImagesDialogFragment : DialogFragment() {
 
         dialog.setCancelable(false)
         dialog.setCanceledOnTouchOutside(false)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.let { window ->
+
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                window.attributes.blurBehindRadius = 35
+                window.setDimAmount(0.4f)
+            } else {
+                window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                window.setDimAmount(0.75f)
+            }
+        }
 
         btnCancel.setOnClickListener { dialog.dismiss() }
 

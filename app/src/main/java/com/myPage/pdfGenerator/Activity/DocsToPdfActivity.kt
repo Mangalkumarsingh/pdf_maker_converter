@@ -7,12 +7,14 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.view.View
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -81,7 +83,9 @@ class DocsToPdfActivity : AppCompatActivity() {
             val window = getWindow()
             window.setStatusBarColor(getResources().getColor(R.color.btn_color_pdf));
         }
-        binding.toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        binding.toolbar.findViewById<android.widget.ImageView>(R.id.ivBack).setOnClickListener {
+            finish()
+        }
 
         pdfMakingAdapter = PdfMakingAdapter(
             onOpen = { openPdf(it) },
@@ -142,20 +146,49 @@ class DocsToPdfActivity : AppCompatActivity() {
         val btnCancel = v.findViewById<MaterialButton>(R.id.btnCancel)
 
         et.setText(defaultName)
-        et.selectAll()
+//        et.selectAll()
         et.requestFocus()
 
-        val dialog = MaterialAlertDialogBuilder(this).setView(v).create()
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setView(v)
+            .create()
+
         dialog.setCancelable(false)
         dialog.setCanceledOnTouchOutside(false)
 
+        // 1. Transparent background zaroori hai taaki XML ke rounded corners dikhein
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        dialog.window?.let { window ->
+            // 2. Keyboard automatically open karne ke liye
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+
+            // 3. Blur aur Dim logic
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // Android 12+ ke liye actual Blur effect
+                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                window.attributes.blurBehindRadius = 35 // Blur intensity (0 to 100)
+                window.setDimAmount(0.4f) // Thoda dark bhi karein taaki white dialog highlight ho
+            } else {
+                // Puraane versions ke liye Deep Dim (Dark) effect
+                window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                window.setDimAmount(0.75f) // 75% dark background
+            }
+        }
+
         btnCancel.setOnClickListener { dialog.dismiss() }
+
         btnOk.setOnClickListener {
             val name = et.text?.toString()?.trim().orEmpty()
-            if (name.isBlank()) { et.error = "Enter name"; return@setOnClickListener }
-            onOk(sanitizeFileName(name))
+            if (name.isBlank()) {
+                et.error = "Enter document name"
+                return@setOnClickListener
+            }
+
+            onOk(sanitizeFileName(name)) // Make sure sanitizeFileName function is available
             dialog.dismiss()
         }
+
         dialog.show()
     }
 
@@ -370,6 +403,16 @@ class DocsToPdfActivity : AppCompatActivity() {
             ?: emptyList()
 
         pdfMakingAdapter.submitList(list)
+
+        if (list.isEmpty()) {
+            binding.ivShowNothing.visibility = View.VISIBLE
+            binding.rvRecentPdfs.visibility = View.GONE
+            binding.pdfText.visibility= View.GONE
+        } else {
+            binding.ivShowNothing.visibility = View.GONE
+            binding.rvRecentPdfs.visibility = View.VISIBLE
+            binding.pdfText.visibility= View.VISIBLE
+        }
     }
 
     private fun openPdf(file: File) {
