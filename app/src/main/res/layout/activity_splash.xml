@@ -42,7 +42,6 @@
         android:text="version: 2.0.1"
         android:textColor="@color/black"
         android:textSize="11sp"
-        android:background="#80FFFFFF"
         android:padding="6dp"
         android:elevation="10dp"
         android:translationZ="10dp"

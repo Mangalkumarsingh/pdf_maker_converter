@@ -98,7 +98,11 @@ class FileViewerActivity : AppCompatActivity() {
 
     private fun setupToolbarTheme(colorResId: Int) {
         val color = ContextCompat.getColor(this, colorResId)
+
         binding.appBarLayout.setBackgroundColor(color)
+        binding.toolbar.setBackgroundColor(color)
+        binding.appBarLayout.isLiftOnScroll = false
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.statusBarColor = color
         }

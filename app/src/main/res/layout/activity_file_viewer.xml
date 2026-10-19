@@ -13,12 +13,15 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/btn_color_pdf"
+        app:liftOnScroll="false"
+        android:stateListAnimator="@null"
         android:fitsSystemWindows="true">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
+            android:background="@android:color/transparent"
             app:navigationIcon="@drawable/ic_arrow_back"
             app:navigationIconTint="@color/white"
             app:titleTextColor="@color/white"
