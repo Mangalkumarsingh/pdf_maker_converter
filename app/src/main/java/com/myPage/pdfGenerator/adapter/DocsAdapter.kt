@@ -34,20 +34,26 @@ class DocsAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val file = items[position]
+
+        // File Name
         holder.b.tvPdfName.text = file.name
 
-        // Format date and time
+        // Format Date
         val dateFormat = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
         val formattedDate = dateFormat.format(Date(file.lastModified()))
-        holder.b.tvInfo.text = "$formattedDate"
+
+        // Format Size
         val fileSizeInBytes = file.length()
         val formattedSize = when {
             fileSizeInBytes < 1024 -> "$fileSizeInBytes B"
-            fileSizeInBytes < 1024 * 1024 -> String.format("%.2f KB", fileSizeInBytes / 1024.0)
-            fileSizeInBytes < 1024 * 1024 * 1024 -> String.format("%.2f MB", fileSizeInBytes / (1024.0 * 1024))
-            else -> String.format("%.2f GB", fileSizeInBytes / (1024.0 * 1024 * 1024))
+            fileSizeInBytes < 1024 * 1024 -> String.format(Locale.US, "%.2f KB", fileSizeInBytes / 1024.0)
+            fileSizeInBytes < 1024 * 1024 * 1024 -> String.format(Locale.US, "%.2f MB", fileSizeInBytes / (1024.0 * 1024))
+            else -> String.format(Locale.US, "%.2f GB", fileSizeInBytes / (1024.0 * 1024 * 1024))
         }
-        holder.b.fileSize.text = formattedSize
+
+        // Merge Date aur Size
+        holder.b.tvInfo.text = "$formattedDate  •  $formattedSize"
+
         holder.itemView.setOnClickListener { onOpen(file) }
 
         holder.b.ivMore.setOnClickListener { anchor ->
@@ -66,7 +72,5 @@ class DocsAdapter(
     }
 
     override fun getItemCount() = items.size
-
-
 
 }

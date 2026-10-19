@@ -27,7 +27,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
-            android:text="Privacy Policy"
+            android:text="DocNest"
             android:textSize="20sp"
             android:textColor="@color/black"
             android:textStyle="bold" />
@@ -37,6 +37,7 @@
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:layout_marginTop="-35dp"/>
 
 </LinearLayout>

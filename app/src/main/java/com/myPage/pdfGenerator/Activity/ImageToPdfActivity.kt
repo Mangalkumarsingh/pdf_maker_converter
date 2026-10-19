@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -169,7 +170,6 @@ class ImageToPdfActivity : AppCompatActivity(),SelectedImagesDialogFragment.List
 
 
     override fun onAddMoreRequested() {
-        // dialog se add more दबाया तो picker reopen
         pickMultipleMedia.launch(
             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
         )
@@ -184,7 +184,6 @@ class ImageToPdfActivity : AppCompatActivity(),SelectedImagesDialogFragment.List
 
         if (files.size <= maxKeep) return
 
-        // delete older (index maxKeep .. end)
         files.drop(maxKeep).forEach { it.delete() }
     }
 
@@ -221,11 +220,13 @@ class ImageToPdfActivity : AppCompatActivity(),SelectedImagesDialogFragment.List
         recentAdapter.submitList(list)
 
         if (list.isEmpty()) {
-            binding.ivShowNothing.visibility = android.view.View.VISIBLE
-            binding.rvRecentPdfs.visibility = android.view.View.GONE
+            binding.ivShowNothing.visibility = View.VISIBLE
+            binding.rvRecentPdfs.visibility = View.GONE
+            binding.pdfText.visibility= View.GONE
         } else {
-            binding.ivShowNothing.visibility = android.view.View.GONE
-            binding.rvRecentPdfs.visibility = android.view.View.VISIBLE
+            binding.ivShowNothing.visibility = View.GONE
+            binding.rvRecentPdfs.visibility = View.VISIBLE
+            binding.pdfText.visibility= View.VISIBLE
         }
     }
 

@@ -40,8 +40,8 @@
 
                 <ImageView
                     android:id="@+id/ivBack"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="25dp"
+                    android:layout_height="25dp"
                     android:layout_marginStart="16dp"
                     android:layout_marginEnd="16dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
@@ -151,9 +151,11 @@
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
+                android:id="@+id/pdfText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
+                 android:visibility="gone"
                 android:text="Recent PDFs"
                 android:textStyle="bold"
                 android:textSize="16sp"/>

@@ -56,17 +56,17 @@ object CompressDialogHelper {
         // Show High size immediately when dialog opens!
         binding.tvCurrentSize.text = formatFileSize(cachedSizes[selectedLevel] ?: estimatedHigh)
 
-        // 2. Refine in background with actual sample compression
+        // 2. Refine in background with actual sample compression at ALL levels
         scope.launch(Dispatchers.IO) {
             if (uris.isNotEmpty()) {
-                val sampleHigh = PdfCreator.estimatePdfSize(context, uris, CompressLevelBar.Level.HIGH)
-                if (sampleHigh > 0) {
-                    cachedSizes[CompressLevelBar.Level.HIGH] = sampleHigh
-                    cachedSizes[CompressLevelBar.Level.MEDIUM] = (sampleHigh * 0.48f).toLong().coerceAtLeast(1024L)
-                    cachedSizes[CompressLevelBar.Level.LOW] = (sampleHigh * 0.22f).toLong().coerceAtLeast(1024L)
+                val accurateSizes = PdfCreator.estimatePdfSizes(context, uris)
+                if (accurateSizes.isNotEmpty()) {
+                    cachedSizes.putAll(accurateSizes)
 
                     withContext(Dispatchers.Main) {
-                        binding.tvCurrentSize.text = formatFileSize(cachedSizes[selectedLevel] ?: sampleHigh)
+                        binding.tvCurrentSize.text = formatFileSize(
+                            cachedSizes[selectedLevel] ?: estimatedHigh
+                        )
                     }
                 }
             }

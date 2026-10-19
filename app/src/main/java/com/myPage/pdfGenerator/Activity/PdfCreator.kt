@@ -78,21 +78,42 @@ object PdfCreator {
         level: CompressLevelBar.Level
     ): Long {
         if (imageUris.isEmpty()) return 0L
+        val sizes = estimatePdfSizes(context, imageUris)
+        return sizes[level] ?: 0L
+    }
 
-        var sampledBytes = 0L
-        val sampleCount = minOf(imageUris.size, 1)
+    /**
+     * Estimates PDF sizes in bytes for ALL compression levels by actually compressing
+     * a sample image at each level. This avoids inaccurate fixed-ratio multipliers.
+     */
+    fun estimatePdfSizes(
+        context: Context,
+        imageUris: List<Uri>
+    ): Map<CompressLevelBar.Level, Long> {
+        if (imageUris.isEmpty()) return emptyMap()
 
-        for (i in 0 until sampleCount) {
-            val bytes = getCompressedJpegBytes(context, imageUris[i], level)
-            if (bytes != null) {
-                sampledBytes += bytes.size
+        val result = mutableMapOf<CompressLevelBar.Level, Long>()
+        val sampleCount = minOf(imageUris.size, 2)
+
+        for (level in CompressLevelBar.Level.values()) {
+            var sampledBytes = 0L
+            var validSamples = 0
+
+            for (i in 0 until sampleCount) {
+                val bytes = getCompressedJpegBytes(context, imageUris[i], level)
+                if (bytes != null) {
+                    sampledBytes += bytes.size
+                    validSamples++
+                }
             }
+
+            val avgBytesPerPage = if (validSamples > 0) sampledBytes / validSamples else 0L
+            // PDF structure overhead: ~1.5KB per page object + ~2KB header/catalog/trailer
+            val totalBytes = (avgBytesPerPage * imageUris.size) + (imageUris.size * 1536L) + 2048L
+            result[level] = totalBytes
         }
 
-        val avgBytesPerPage = if (sampleCount > 0) sampledBytes / sampleCount else 0L
-        // PDF structure overhead: ~1.5KB per page object + ~2KB header/catalog/trailer
-        val totalBytes = (avgBytesPerPage * imageUris.size) + (imageUris.size * 1536L) + 2048L
-        return totalBytes
+        return result
     }
 
     private fun getCompressedJpegBytes(
