@@ -16,21 +16,20 @@ import android.provider.MediaStore
 import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.myPage.pdfGenerator.R
-import com.myPage.pdfGenerator.adapter.RecentPdfAdapter
 import com.myPage.pdfGenerator.databinding.ActivityDocsToPdfBinding
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.myPage.pdfGenerator.adapter.PdfMakingAdapter
+import com.myPage.pdfGenerator.utils.CommonUtil
+import com.myPage.pdfGenerator.utils.CompressDialogHelper
+import com.myPage.pdfGenerator.utils.CompressLevelBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,7 +49,7 @@ class DocsToPdfActivity : AppCompatActivity() {
 
     private lateinit var pdfMakingAdapter: PdfMakingAdapter
     private var pendingDownloadFile: File? = null
-    private val preRenderedPdfBytes = mutableMapOf<com.myPage.pdfGenerator.utils.CompressLevelBar.Level, ByteArray>()
+    private val preRenderedPdfBytes = mutableMapOf<CompressLevelBar.Level, ByteArray>()
 
     private val pickDocLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -110,14 +109,14 @@ class DocsToPdfActivity : AppCompatActivity() {
         binding.btnConvert.isEnabled = false
         binding.btnConvert.setOnClickListener {
             val docUri = selectedDocUri ?: return@setOnClickListener
-            val defaultName = com.myPage.pdfGenerator.utils.CommonUtil.getFileBaseName(this, docUri, "converted")
+            val defaultName = CommonUtil.getFileBaseName(this, docUri, "converted")
 
             showNameDialogCustom(defaultName) { entered ->
                 pdfName = entered
 
-                val originalSize = com.myPage.pdfGenerator.utils.CommonUtil.getUriFileSize(this, docUri)
+                val originalSize = CommonUtil.getUriFileSize(this, docUri)
 
-                com.myPage.pdfGenerator.utils.CompressDialogHelper.showDocumentCompressDialog(
+                CompressDialogHelper.showDocumentCompressDialog(
                     context = this,
                     title = "Compress Output PDF",
                     sizeLabel = "Estimated PDF Size",
@@ -146,7 +145,6 @@ class DocsToPdfActivity : AppCompatActivity() {
         val btnCancel = v.findViewById<MaterialButton>(R.id.btnCancel)
 
         et.setText(defaultName)
-//        et.selectAll()
         et.requestFocus()
 
         val dialog = MaterialAlertDialogBuilder(this)
@@ -156,23 +154,18 @@ class DocsToPdfActivity : AppCompatActivity() {
         dialog.setCancelable(false)
         dialog.setCanceledOnTouchOutside(false)
 
-        // 1. Transparent background zaroori hai taaki XML ke rounded corners dikhein
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
         dialog.window?.let { window ->
-            // 2. Keyboard automatically open karne ke liye
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
 
-            // 3. Blur aur Dim logic
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Android 12+ ke liye actual Blur effect
                 window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-                window.attributes.blurBehindRadius = 35 // Blur intensity (0 to 100)
-                window.setDimAmount(0.4f) // Thoda dark bhi karein taaki white dialog highlight ho
+                window.attributes.blurBehindRadius = 35
+                window.setDimAmount(0.4f)
             } else {
-                // Puraane versions ke liye Deep Dim (Dark) effect
                 window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-                window.setDimAmount(0.75f) // 75% dark background
+                window.setDimAmount(0.75f)
             }
         }
 
@@ -185,7 +178,7 @@ class DocsToPdfActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            onOk(sanitizeFileName(name)) // Make sure sanitizeFileName function is available
+            onOk(sanitizeFileName(name))
             dialog.dismiss()
         }
 
@@ -198,7 +191,7 @@ class DocsToPdfActivity : AppCompatActivity() {
     private fun renderDocxToPdf(
         context: android.content.Context,
         docUri: Uri,
-        compressLevel: com.myPage.pdfGenerator.utils.CompressLevelBar.Level,
+        compressLevel: CompressLevelBar.Level,
         outStream: OutputStream
     ) {
         context.contentResolver.openInputStream(docUri).use { input ->
@@ -211,7 +204,7 @@ class DocsToPdfActivity : AppCompatActivity() {
                 color = Color.BLACK
             }
 
-            val pageWidth = 595  // A4 approx (points)
+            val pageWidth = 595
             val pageHeight = 842
             val margin = 40
             val maxW = pageWidth - margin * 2
@@ -233,7 +226,6 @@ class DocsToPdfActivity : AppCompatActivity() {
                 y = margin.toFloat()
             }
 
-            // helper: wrap text
             fun drawWrapped(text: String) {
                 val words = text.split(" ")
                 var line = ""
@@ -256,9 +248,9 @@ class DocsToPdfActivity : AppCompatActivity() {
             }
 
             val maxDim = when (compressLevel) {
-                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH -> 900
-                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.MEDIUM -> 600
-                com.myPage.pdfGenerator.utils.CompressLevelBar.Level.LOW -> 380
+                CompressLevelBar.Level.HIGH -> 900
+                CompressLevelBar.Level.MEDIUM -> 600
+                CompressLevelBar.Level.LOW -> 380
             }
 
             for (p in doc.paragraphs) {
@@ -311,29 +303,28 @@ class DocsToPdfActivity : AppCompatActivity() {
     private fun estimateDocsToPdfSizes(
         context: android.content.Context,
         docUri: Uri
-    ): Map<com.myPage.pdfGenerator.utils.CompressLevelBar.Level, Long> {
-        val result = mutableMapOf<com.myPage.pdfGenerator.utils.CompressLevelBar.Level, Long>()
+    ): Map<CompressLevelBar.Level, Long> {
+        val result = mutableMapOf<CompressLevelBar.Level, Long>()
         try {
-            // Render HIGH into memory
+
             val baosHigh = ByteArrayOutputStream()
-            renderDocxToPdf(context, docUri, com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH, baosHigh)
+            renderDocxToPdf(context, docUri, CompressLevelBar.Level.HIGH, baosHigh)
             val highBytes = baosHigh.toByteArray()
-            preRenderedPdfBytes[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH] = highBytes
-            result[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH] = highBytes.size.toLong()
+            preRenderedPdfBytes[CompressLevelBar.Level.HIGH] = highBytes
+            result[CompressLevelBar.Level.HIGH] = highBytes.size.toLong()
 
-            // Render MEDIUM into memory
             val baosMed = ByteArrayOutputStream()
-            renderDocxToPdf(context, docUri, com.myPage.pdfGenerator.utils.CompressLevelBar.Level.MEDIUM, baosMed)
+            renderDocxToPdf(context, docUri, CompressLevelBar.Level.MEDIUM, baosMed)
             val medBytes = baosMed.toByteArray()
-            preRenderedPdfBytes[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.MEDIUM] = medBytes
-            result[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.MEDIUM] = medBytes.size.toLong()
+            preRenderedPdfBytes[CompressLevelBar.Level.MEDIUM] = medBytes
+            result[CompressLevelBar.Level.MEDIUM] = medBytes.size.toLong()
 
-            // Render LOW into memory
+
             val baosLow = ByteArrayOutputStream()
-            renderDocxToPdf(context, docUri, com.myPage.pdfGenerator.utils.CompressLevelBar.Level.LOW, baosLow)
+            renderDocxToPdf(context, docUri, CompressLevelBar.Level.LOW, baosLow)
             val lowBytes = baosLow.toByteArray()
-            preRenderedPdfBytes[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.LOW] = lowBytes
-            result[com.myPage.pdfGenerator.utils.CompressLevelBar.Level.LOW] = lowBytes.size.toLong()
+            preRenderedPdfBytes[CompressLevelBar.Level.LOW] = lowBytes
+            result[CompressLevelBar.Level.LOW] = lowBytes.size.toLong()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -343,7 +334,7 @@ class DocsToPdfActivity : AppCompatActivity() {
     private fun convertDocxToPdf(
         docUri: Uri,
         outFile: File,
-        compressLevel: com.myPage.pdfGenerator.utils.CompressLevelBar.Level = com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH
+        compressLevel: CompressLevelBar.Level = CompressLevelBar.Level.HIGH
     ) {
         binding.progress.visibility = View.VISIBLE
         binding.btnPickPdf.isEnabled = false

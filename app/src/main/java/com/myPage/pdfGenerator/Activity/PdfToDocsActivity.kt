@@ -29,17 +29,17 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.myPage.pdfGenerator.utils.CommonUtil
+import com.myPage.pdfGenerator.utils.CompressDialogHelper
 import com.myPage.pdfGenerator.utils.CompressLevelBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
-import org.apache.poi.util.Units
 import org.apache.poi.xwpf.usermodel.BreakType
 import org.apache.poi.xwpf.usermodel.Document
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment
 import org.apache.poi.xwpf.usermodel.XWPFDocument
-import org.bouncycastle.jcajce.provider.asymmetric.GOST
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr
@@ -92,7 +92,6 @@ class PdfToDocsActivity : AppCompatActivity() {
             val pdfUri = pendingPdfUri
             if (outUri != null && pdfUri != null) {
                 pendingPdfUri = null
-               // convertPdfToDocxUsingOcr(pdfUri, outUri)
                 convertPdfToDocx_AsImages(pdfUri, outUri)
             }
         }
@@ -131,14 +130,14 @@ class PdfToDocsActivity : AppCompatActivity() {
         binding.btnConvert.isEnabled = false
         binding.btnConvert.setOnClickListener {
             val pdfUri = selectedPdfUri ?: return@setOnClickListener
-            val defaultName = com.myPage.pdfGenerator.utils.CommonUtil.getFileBaseName(this, pdfUri, "converted")
+            val defaultName = CommonUtil.getFileBaseName(this, pdfUri, "converted")
 
             showNameDialog(defaultName) { enteredName ->
                 docxName = enteredName
 
-                val originalSize = com.myPage.pdfGenerator.utils.CommonUtil.getUriFileSize(this, pdfUri)
+                val originalSize = CommonUtil.getUriFileSize(this, pdfUri)
 
-                com.myPage.pdfGenerator.utils.CompressDialogHelper.showDocumentCompressDialog(
+                CompressDialogHelper.showDocumentCompressDialog(
                     context = this,
                     title = "Compress Output DOCS",
                     sizeLabel = "Estimated DOCS Size",
@@ -154,7 +153,7 @@ class PdfToDocsActivity : AppCompatActivity() {
                     onCancelled = {
                         // PDF to DOCS not created if cancelled
                     },
-                    logoResId = com.myPage.pdfGenerator.R.drawable.docs
+                    logoResId = R.drawable.docs
                 )
             }
         }
@@ -227,7 +226,7 @@ class PdfToDocsActivity : AppCompatActivity() {
     private fun convertPdfToDocx_AsImages_SaveToFile(
         pdfUri: Uri,
         outFile: File,
-        compressLevel: com.myPage.pdfGenerator.utils.CompressLevelBar.Level = com.myPage.pdfGenerator.utils.CompressLevelBar.Level.HIGH
+        compressLevel: CompressLevelBar.Level = CompressLevelBar.Level.HIGH
     ) {
         binding.progress.visibility = View.VISIBLE
         binding.btnPickPdf.isEnabled = false

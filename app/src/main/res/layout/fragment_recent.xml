@@ -7,39 +7,21 @@
     android:padding="16dp"
     android:background="@color/white">
 
-
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayoutRecent"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
         android:background="@color/white"
+        app:tabBackground="@drawable/tab_bg_selector"
+        app:tabIndicatorHeight="0dp"
+        app:tabSelectedTextColor="@color/white"
+        app:tabTextColor="@color/black"
+        app:tabMode="fixed"
+        app:tabGravity="fill" />
 
-    app:tabBackground="@drawable/recent_pdf_background"
-    app:tabIndicatorHeight="0dp"
-    app:tabSelectedTextColor="@color/black"
-    app:tabTextColor="@color/white"
-    app:tabMode="fixed"
-    app:tabGravity="fill">
-
-        <com.google.android.material.tabs.TabItem
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingLeft="18dp"
-            android:background="@drawable/recent_pdf_background"
-            android:text="PDF" />
-
-
-        <com.google.android.material.tabs.TabItem
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/recent_pdf_background"
-            android:text="Docs" />
-
-    </com.google.android.material.tabs.TabLayout>
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvRecentPdfs"
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPagerRecent"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 

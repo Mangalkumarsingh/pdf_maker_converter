@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Jab Tab Selected ho (Maan lijiye Black background aur White text) -->
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <!-- Yahan aap apna theme color daal sakte hain -->
+            <solid android:color="@color/btn_color" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+
+    <!-- Jab Tab Unselected ho (White background aur Black border) -->
+    <item android:state_selected="false">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/white" />
+            <!-- Border (Stroke) -->
+            <stroke android:width="1dp" android:color="@color/btn_color" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+
+</selector>

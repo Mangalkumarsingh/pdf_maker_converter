@@ -22,8 +22,8 @@ import com.myPage.pdfGenerator.adapter.SelectedImagesAdapter
 import com.myPage.pdfGenerator.fragment.SelectedImagesDialogFragment
 import com.yalantis.ucrop.UCrop
 import androidx.lifecycle.lifecycleScope
-import com.myPage.pdfGenerator.databinding.ActivityDocsToPdfBinding
 import com.myPage.pdfGenerator.databinding.ActivityImageToPdfBinding
+import com.myPage.pdfGenerator.utils.CompressLevelBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -148,7 +148,7 @@ class ImageToPdfActivity : AppCompatActivity(),SelectedImagesDialogFragment.List
     override fun onImagesFinalized(
         finalUris: List<Uri>,
         pdfName: String,
-        compressLevel: com.myPage.pdfGenerator.utils.CompressLevelBar.Level
+        compressLevel: CompressLevelBar.Level
     ) {
         if (finalUris.isEmpty()) return
 

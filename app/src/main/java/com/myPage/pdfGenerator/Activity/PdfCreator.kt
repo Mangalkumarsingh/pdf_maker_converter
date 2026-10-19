@@ -30,8 +30,8 @@ object PdfCreator {
         PDFBoxResourceLoader.init(context.applicationContext)
         val document = PDDocument()
 
-        val pageWidth = 595.28f  // Standard A4 width in points
-        val pageHeight = 841.89f // Standard A4 height in points
+        val pageWidth = 595.28f
+        val pageHeight = 841.89f
         val margin = 20f
 
         try {
@@ -49,7 +49,7 @@ object PdfCreator {
                 val drawW = pdImage.width * scale
                 val drawH = pdImage.height * scale
 
-                // In PDF coordinates, origin (0, 0) is bottom-left
+
                 val x = (pageWidth - drawW) / 2f
                 val y = (pageHeight - drawH) / 2f
 
@@ -69,23 +69,8 @@ object PdfCreator {
         }
     }
 
-    /**
-     * Estimates PDF size in bytes for a given compression level without writing full file to disk.
-     */
-    fun estimatePdfSize(
-        context: Context,
-        imageUris: List<Uri>,
-        level: CompressLevelBar.Level
-    ): Long {
-        if (imageUris.isEmpty()) return 0L
-        val sizes = estimatePdfSizes(context, imageUris)
-        return sizes[level] ?: 0L
-    }
 
-    /**
-     * Estimates PDF sizes in bytes for ALL compression levels by actually compressing
-     * a sample image at each level. This avoids inaccurate fixed-ratio multipliers.
-     */
+
     fun estimatePdfSizes(
         context: Context,
         imageUris: List<Uri>
@@ -131,10 +116,8 @@ object PdfCreator {
             val origH = boundsOpts.outHeight
             if (origW <= 0 || origH <= 0) return null
 
-            // Target maximum dimension based on level scaleFactor
             val maxDimension = (1800 * level.scaleFactor).toInt().coerceAtLeast(600)
 
-            // Calculate sample size for initial downsampling to avoid high memory consumption
             var inSampleSize = 1
             val maxOrig = maxOf(origW, origH)
             while ((maxOrig / (inSampleSize * 2)) >= maxDimension) {
@@ -150,7 +133,6 @@ object PdfCreator {
                 BitmapFactory.decodeStream(it, null, decodeOpts)
             } ?: return null
 
-            // 2) Check EXIF rotation and rotate if needed
             try {
                 context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     val exif = ExifInterface(inputStream)
@@ -175,7 +157,6 @@ object PdfCreator {
                 }
             } catch (_: Exception) {}
 
-            // 3) Smooth downscale to exact target dimension if still larger
             val currentMax = maxOf(bitmap.width, bitmap.height)
             if (currentMax > maxDimension) {
                 val scale = maxDimension.toFloat() / currentMax.toFloat()
@@ -188,7 +169,6 @@ object PdfCreator {
                 }
             }
 
-            // 4) Ensure white background if image has alpha transparency (prevents black background)
             val finalBitmap = if (bitmap.hasAlpha()) {
                 val opaqueBmp = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(opaqueBmp)
@@ -200,7 +180,6 @@ object PdfCreator {
                 bitmap
             }
 
-            // 5) Compress to JPEG bytes with requested quality
             val baos = ByteArrayOutputStream()
             finalBitmap.compress(Bitmap.CompressFormat.JPEG, level.quality, baos)
             finalBitmap.recycle()

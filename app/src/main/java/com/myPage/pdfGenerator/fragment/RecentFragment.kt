@@ -16,7 +16,9 @@ import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 import com.myPage.pdfGenerator.R
 import com.myPage.pdfGenerator.adapter.DocsAdapter
 import com.myPage.pdfGenerator.adapter.RecentPdfAdapter
@@ -24,12 +26,11 @@ import java.io.File
 
 class RecentFragment : Fragment() {
 
-    private lateinit var rvRecent: RecyclerView
+    private lateinit var viewPager: ViewPager2
     private lateinit var pdfAdapter: RecentPdfAdapter
     private lateinit var docAdapter: DocsAdapter
 
     private var pendingDownloadFile: File? = null
-    private var allRecentFiles: List<File> = emptyList()
 
     private val createDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
         val src = pendingDownloadFile ?: return@registerForActivityResult
@@ -47,12 +48,9 @@ class RecentFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_recent, container, false)
-        rvRecent = view.findViewById(R.id.rvRecentPdfs)
+        viewPager = view.findViewById(R.id.viewPagerRecent)
         val tabLayout = view.findViewById<TabLayout>(R.id.tabLayoutRecent)
 
-        rvRecent.layoutManager = LinearLayoutManager(requireContext())
-
-        // 1. दोनों Adapters को Initialize करना
         val onOpen = { file: File -> openFile(file) }
         val onShare = { file: File -> shareFile(file) }
         val onDownload = { file: File -> downloadFile(file) }
@@ -61,27 +59,25 @@ class RecentFragment : Fragment() {
         pdfAdapter = RecentPdfAdapter(onOpen, onShare, onDownload, onDelete)
         docAdapter = DocsAdapter(onOpen, onShare, onDownload, onDelete)
 
-        // 2. Tabs के बीच में Gap (Margin) देना
+        // ViewPager ke liye adapter set karna
+        viewPager.adapter = PagerAdapter()
+
+        // Tab aur ViewPager ko aapas mein link karna (Swipe aur Click dono chalenge)
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+            tab.text = if (position == 0) "PDF" else "Docs"
+        }.attach()
+
+        // Tabs ke beech gap set karna
         tabLayout.post {
             val tabs = tabLayout.getChildAt(0) as ViewGroup
             for (i in 0 until tabs.childCount) {
                 val tab = tabs.getChildAt(i)
                 val layoutParams = tab.layoutParams as LinearLayout.LayoutParams
-                // Left और Right से 16px का गैप (आप इसे अपने हिसाब से कम/ज़्यादा कर सकते हैं)
                 layoutParams.setMargins(16, 0, 16, 0)
                 tab.layoutParams = layoutParams
                 tab.requestLayout()
             }
         }
-
-        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: TabLayout.Tab?) {
-                filterData(tab?.position ?: 0)
-            }
-
-            override fun onTabUnselected(tab: TabLayout.Tab?) {}
-            override fun onTabReselected(tab: TabLayout.Tab?) {}
-        })
 
         loadRecentData()
         return view
@@ -91,38 +87,45 @@ class RecentFragment : Fragment() {
         val list = mutableListOf<File>()
 
         val pdfDir = File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "PDFMaker")
-        if (pdfDir.exists()) {
-            list.addAll(pdfDir.listFiles { f -> f.isFile } ?: emptyArray())
-        }
+        if (pdfDir.exists()) list.addAll(pdfDir.listFiles { f -> f.isFile } ?: emptyArray())
 
         val docsToPdfDir = File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "DocsToPdf")
-        if (docsToPdfDir.exists()) {
-            list.addAll(docsToPdfDir.listFiles { f -> f.isFile } ?: emptyArray())
-        }
+        if (docsToPdfDir.exists()) list.addAll(docsToPdfDir.listFiles { f -> f.isFile } ?: emptyArray())
 
         val pdfToDocsDir = File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "ConvertedDOCX")
-        if (pdfToDocsDir.exists()) {
-            list.addAll(pdfToDocsDir.listFiles { f -> f.isFile } ?: emptyArray())
-        }
+        if (pdfToDocsDir.exists()) list.addAll(pdfToDocsDir.listFiles { f -> f.isFile } ?: emptyArray())
 
-        allRecentFiles = list.sortedByDescending { it.lastModified() }
-        val tabLayout = view?.findViewById<TabLayout>(R.id.tabLayoutRecent)
-        filterData(tabLayout?.selectedTabPosition ?: 0)
+        val allRecentFiles = list.sortedByDescending { it.lastModified() }
+
+        // Dono adapters ko unka data filter karke de diya (ab filterData function ki zaroorat nahi)
+        val pdfList = allRecentFiles.filter { it.name.endsWith(".pdf", true) }
+        val docList = allRecentFiles.filter { it.name.endsWith(".doc", true) || it.name.endsWith(".docx", true) }
+
+        pdfAdapter.submitList(pdfList)
+        docAdapter.submitList(docList)
     }
 
-    private fun filterData(tabPosition: Int) {
-        // 3. Tab के अनुसार Adapter चेंज करना
-        if (tabPosition == 0) {
-            // PDF tab सेलेक्टेड है
-            val filteredList = allRecentFiles.filter { it.name.endsWith(".pdf", true) }
-            pdfAdapter.submitList(filteredList)
-            rvRecent.adapter = pdfAdapter
-        } else {
-            // Docs tab सेलेक्टेड है
-            val filteredList = allRecentFiles.filter { it.name.endsWith(".doc", true) || it.name.endsWith(".docx", true) }
-            docAdapter.submitList(filteredList)
-            rvRecent.adapter = docAdapter
+    // ViewPager2 ke liye chhota sa internal adapter
+    inner class PagerAdapter : RecyclerView.Adapter<PagerAdapter.PageViewHolder>() {
+        inner class PageViewHolder(val rv: RecyclerView) : RecyclerView.ViewHolder(rv)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageViewHolder {
+            val rv = RecyclerView(parent.context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                layoutManager = LinearLayoutManager(parent.context)
+            }
+            return PageViewHolder(rv)
         }
+
+        override fun onBindViewHolder(holder: PageViewHolder, position: Int) {
+            // Page 0 par PDF adapter, Page 1 par Docs adapter
+            holder.rv.adapter = if (position == 0) pdfAdapter else docAdapter
+        }
+
+        override fun getItemCount(): Int = 2
     }
 
     private fun openFile(file: File) {
